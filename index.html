@@ -351,7 +351,8 @@
             try {
                 if (!cwaJson.records || !cwaJson.records.location || cwaJson.records.location.length === 0) {
                     console.error("解析失敗: 找不到 records 或 location 數據。");
-                    return [];
+                    // 拋出錯誤，讓 fetchWeather 捕捉並顯示詳細訊息
+                    throw new Error("CWA 頂層結構錯誤：缺少 records 或 records.location。請檢查代理服務器回傳的數據是否為有效的 CWA JSON 格式。");
                 }
 
                 // 目標是宜蘭市，但如果找不到，則使用整個宜蘭縣資料集中的第一個鄉鎮
@@ -359,14 +360,15 @@
                 let locationData = cwaJson.records.location.find(loc => loc.locationName === targetLocationName);
 
                 if (!locationData) {
-                    console.warn(`解析警告: 找不到 ${targetLocationName}，改用第一個鄉鎮資料: ${cwaJson.records.location[0]?.locationName}`);
+                    const fallbackLocationName = cwaJson.records.location[0]?.locationName || "未知鄉鎮";
+                    console.warn(`解析警告: 找不到 ${targetLocationName}，改用第一個鄉鎮資料: ${fallbackLocationName}`);
                     locationData = cwaJson.records.location[0];
                 }
 
                 const elements = locationData?.weatherElement;
                 if (!elements) {
                     console.error("解析失敗: 找不到 weatherElement 陣列。");
-                    return [];
+                    throw new Error("CWA 數據結構錯誤：缺少 weatherElement 陣列。");
                 }
 
                 // 找出一個有時間軸的元素作為基準 (例如 Wx)
@@ -374,7 +376,7 @@
 
                 if (!timeBaselineElement || !timeBaselineElement.time) {
                     console.error("解析失敗: 找不到任何可用的時間基準元素。");
-                    return [];
+                    throw new Error("CWA 數據結構錯誤：找不到具備時間軸的元素（如 Wx）。");
                 }
 
 
@@ -426,7 +428,7 @@
 
             } catch (error) {
                 console.error("解析過程發生未知錯誤:", error);
-                return [];
+                throw error; // 重新拋出錯誤，讓 fetchWeather 捕捉
             }
         }
 
@@ -434,98 +436,113 @@
             // 由於代理服務器回傳格式是 { success: "true", data: CWA_RAW_DATA }
             const cwaRawData = data.data || data; // 如果是代理格式，則取 data 屬性
 
-            const forecasts = parseCwaData(cwaRawData);
+            try {
+                const forecasts = parseCwaData(cwaRawData);
 
-            if (forecasts.length === 0) {
-                // 如果解析失敗，將錯誤訊息寫入 UI
+                if (forecasts.length === 0) {
+                    // 如果解析失敗（且 parseCwaData 沒有拋出特定錯誤），顯示通用解析錯誤
+                    document.getElementById('loading').innerHTML = `
+                        <div style="font-size: 2rem; color: white;">⚠️ 資料解析錯誤</div>
+                        <p style="color: white; font-weight: bold; margin-top: 20px; max-width: 80%; text-align: center;">
+                            未能成功解析宜蘭縣天氣資料的內部結構。
+                            <br>請確認您的代理服務器 <strong>${API_URL}</strong> 回傳的資料結構是否正確。
+                            <br>詳情請按 F12 檢查 Console 獲取詳情。
+                        </p>
+                    `;
+                    document.getElementById('loading').style.display = 'flex';
+                    return;
+                }
+
+                const current = forecasts[0];
+                const others = forecasts.slice(1);
+
+                // 1. 渲染 Hero Card (主畫面)
+                const bikeAdvice = getBikeAdvice(current.rain, current.feelTemp, current.windSpeed);
+                // 優先使用體感溫度，如果沒有，則使用最低溫度 (並移除單位，讓它看起來更像一個數字)
+                const displayTemp = (current.feelTemp !== 'N/A' && current.feelTemp !== null) ? current.feelTemp.toString().replace('°C', '') :
+                    (current.minTemp !== 'N/A' ? current.minTemp.toString().replace('°C', '') : '25');
+
+                document.getElementById('heroCard').innerHTML = `<div class="hero-card">
+                                    <div class="hero-period">${getTimePeriod(current.startTime)} 預報</div>
+                                    <div class="hero-temp-container">
+                                        <div class="hero-icon">${getWeatherIcon(current.weather)}</div>
+                                        <div class="hero-temp">${displayTemp}°</div>
+                                    </div>
+                                    <div class="hero-desc">${current.weather}</div>
+
+                                    <div class="advice-grid">
+                                        <div class="advice-item">
+                                            <div class="advice-icon">${bikeAdvice.windIcon}</div>
+                                            <div class="advice-text">${bikeAdvice.windText}</div>
+                                            <div style="font-size:0.7rem; color:#999">風速 ${current.windSpeed} m/s</div>
+                                        </div>
+                                        <div class="advice-item">
+                                            <div class="advice-icon">${bikeAdvice.tempIcon}</div>
+                                            <div class="advice-text">${bikeAdvice.tempText}</div>
+                                            <div style="font-size:0.7rem; color:#999">體感 ${current.feelTemp}</div>
+                                        </div>
+                                        <div class="advice-item full-width">
+                                            <div class="advice-icon">${bikeAdvice.rainIcon}</div>
+                                            <div class="advice-text">${bikeAdvice.rainText}</div>
+                                            <div style="font-size:0.7rem; color:#999">降雨率 ${current.rain}%</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                // 2. 渲染稍後預報
+                const scrollContainer = document.getElementById('futureForecasts');
+                scrollContainer.innerHTML = '';
+
+                const todayDate = new Date().getDate();
+
+                others.forEach(f => {
+                    let p = getTimePeriod(f.startTime);
+
+                    const fDate = new Date(f.startTime);
+                    if (fDate.getDate() !== todayDate) {
+                        p = "明天" + p;
+                    }
+
+                    // 確保溫度數字顯示正確
+                    const minTemp = f.minTemp.toString().replace('°C', '');
+                    const maxTemp = f.maxTemp.toString().replace('°C', '');
+
+
+                    scrollContainer.innerHTML += `<div class="mini-card">
+                                    <div class="mini-time">${p}</div>
+                                    <div class="mini-icon">${getWeatherIcon(f.weather)}</div>
+                                    <div class="mini-temp">${minTemp}° - ${maxTemp}°</div>
+                                    <div style="font-size:0.8rem; color:#888; margin-top:5px;">💧${f.rain}%</div>
+                                </div>
+                            `;
+                });
+
+                // 3. 右上角顯示今日日期
+                const now = new Date();
+                const month = now.getMonth() + 1;
+                const date = now.getDate();
+                const dayIndex = now.getDay();
+                const days = ["週日", "週一", "週二", "週三", "週四", "週五", "週六"];
+
+                document.getElementById('updateTime').textContent = `${month}月${date}日 ${days[dayIndex]}`;
+
+                // 成功載入後，隱藏載入畫面
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('mainContent').style.display = 'block';
+
+            } catch (e) {
+                 // 捕捉 parseCwaData 拋出的特定錯誤
+                console.error("renderWeather 捕捉到解析錯誤:", e);
                 document.getElementById('loading').innerHTML = `
-                    <div style="font-size: 2rem; color: white;">⚠️ 資料解析錯誤</div>
+                    <div style="font-size: 2rem; color: white;">⚠️ 資料解析失敗</div>
                     <p style="color: white; font-weight: bold; margin-top: 20px; max-width: 80%; text-align: center;">
-                        未能成功解析宜蘭縣天氣資料的內部結構。
-                        <br>請確認您的代理服務器 <strong>${API_URL}</strong> 回傳的資料結構是否正確。
+                        解析錯誤訊息: <strong style="color: var(--ac-yellow);">${e.message || "未能從代理服務器數據中提取有效的 CWA 結構。"}</strong>
+                        <br>請檢查您的代理服務器 (Zeabur) 是否正確獲取並回傳了 CWA 數據。
                         <br>詳情請按 F12 檢查 Console 獲取詳情。
                     </p>
                 `;
                 document.getElementById('loading').style.display = 'flex';
-                return;
             }
-
-            const current = forecasts[0];
-            const others = forecasts.slice(1);
-
-            // 1. 渲染 Hero Card (主畫面)
-            const bikeAdvice = getBikeAdvice(current.rain, current.feelTemp, current.windSpeed);
-            // 優先使用體感溫度，如果沒有，則使用最低溫度 (並移除單位，讓它看起來更像一個數字)
-            const displayTemp = (current.feelTemp !== 'N/A' && current.feelTemp !== null) ? current.feelTemp.toString().replace('°C', '') :
-                (current.minTemp !== 'N/A' ? current.minTemp.toString().replace('°C', '') : '25');
-
-            document.getElementById('heroCard').innerHTML = `<div class="hero-card">
-                                <div class="hero-period">${getTimePeriod(current.startTime)} 預報</div>
-                                <div class="hero-temp-container">
-                                    <div class="hero-icon">${getWeatherIcon(current.weather)}</div>
-                                    <div class="hero-temp">${displayTemp}°</div>
-                                </div>
-                                <div class="hero-desc">${current.weather}</div>
-
-                                <div class="advice-grid">
-                                    <div class="advice-item">
-                                        <div class="advice-icon">${bikeAdvice.windIcon}</div>
-                                        <div class="advice-text">${bikeAdvice.windText}</div>
-                                        <div style="font-size:0.7rem; color:#999">風速 ${current.windSpeed} m/s</div>
-                                    </div>
-                                    <div class="advice-item">
-                                        <div class="advice-icon">${bikeAdvice.tempIcon}</div>
-                                        <div class="advice-text">${bikeAdvice.tempText}</div>
-                                        <div style="font-size:0.7rem; color:#999">體感 ${current.feelTemp}</div>
-                                    </div>
-                                    <div class="advice-item full-width">
-                                        <div class="advice-icon">${bikeAdvice.rainIcon}</div>
-                                        <div class="advice-text">${bikeAdvice.rainText}</div>
-                                        <div style="font-size:0.7rem; color:#999">降雨率 ${current.rain}%</div>
-                                    </div>
-                                </div>
-                            </div>
-                        `;
-            // 2. 渲染稍後預報
-            const scrollContainer = document.getElementById('futureForecasts');
-            scrollContainer.innerHTML = '';
-
-            const todayDate = new Date().getDate();
-
-            others.forEach(f => {
-                let p = getTimePeriod(f.startTime);
-
-                const fDate = new Date(f.startTime);
-                if (fDate.getDate() !== todayDate) {
-                    p = "明天" + p;
-                }
-
-                // 確保溫度數字顯示正確
-                const minTemp = f.minTemp.toString().replace('°C', '');
-                const maxTemp = f.maxTemp.toString().replace('°C', '');
-
-
-                scrollContainer.innerHTML += `<div class="mini-card">
-                                <div class="mini-time">${p}</div>
-                                <div class="mini-icon">${getWeatherIcon(f.weather)}</div>
-                                <div class="mini-temp">${minTemp}° - ${maxTemp}°</div>
-                                <div style="font-size:0.8rem; color:#888; margin-top:5px;">💧${f.rain}%</div>
-                            </div>
-                        `;
-            });
-
-            // 3. 右上角顯示今日日期
-            const now = new Date();
-            const month = now.getMonth() + 1;
-            const date = now.getDate();
-            const dayIndex = now.getDay();
-            const days = ["週日", "週一", "週二", "週三", "週四", "週五", "週六"];
-
-            document.getElementById('updateTime').textContent = `${month}月${date}日 ${days[dayIndex]}`;
-
-            // 成功載入後，隱藏載入畫面
-            document.getElementById('loading').style.display = 'none';
-            document.getElementById('mainContent').style.display = 'block';
         }
 
         async function fetchWeather() {
@@ -535,8 +552,12 @@
 
                 const fetchPromise = fetch(API_URL, { mode: 'cors' }).then(async res => {
                     if (!res.ok) {
-                        const errorBody = await res.json().catch(() => ({ message: "無法解析代理錯誤訊息" }));
+                        // 嘗試解析錯誤內容，如果失敗則提供預設訊息
+                        const errorBody = await res.json().catch(() => ({ message: "無法解析代理錯誤訊息，可能非 JSON 格式。" }));
+                        
                         console.error(`API 請求 HTTP 錯誤，狀態碼: ${res.status}`, errorBody);
+
+                        // 拋出更詳細的錯誤訊息，告知用戶是 HTTP 狀態碼錯誤
                         throw new Error(`HTTP 狀態碼 ${res.status}。請檢查 Zeabur 代理服務 ${API_URL} 是否正常運行。`);
                     }
                     return res.json();
@@ -551,9 +572,9 @@
                     renderWeather(json);
                 } else if (json) {
                     // 如果代理回傳 success: "false" 或其他非 success: "true" 的結構
-                    const errorDetails = json.message || JSON.stringify(json, null, 2);
+                    const errorDetails = json.message || JSON.stringify(json, null, 2).substring(0, 500); // 避免顯示過長的 JSON
                     console.error(`代理服務錯誤: ${errorDetails}`, json);
-                    throw new Error(`代理服務器回傳錯誤: ${errorDetails}`);
+                    throw new Error(`代理服務器回傳錯誤（success: false 或結構不符）。請檢查 Zeabur 後端日誌。`);
                 } else {
                      // 處理 json 結構缺失的情況
                     throw new Error(`代理服務器回傳資料結構錯誤 (空值或格式異常)。`);
