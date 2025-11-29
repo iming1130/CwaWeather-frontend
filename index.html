@@ -339,7 +339,7 @@
             return "深夜";
         }
 
-        // === CWA 資料解析器 (修正點：處理 F-D0047-091 的鄉鎮結構) ===
+        // === 修正點：使用 MinT 作為時間軸基準，確保解析穩定 ===
         function parseCwaData(cwaJson) {
             if (!cwaJson.records || !cwaJson.records.location || cwaJson.records.location.length === 0) return [];
 
@@ -354,11 +354,11 @@
 
             const elements = locationData.weatherElement;
             
-            // PoP6h 或 PoP12h 是時間軸的基礎
-            const popElement = elements.find(e => e.elementName === 'PoP6h' || e.elementName === 'PoP12h');
-            if (!popElement) return [];
-            const timePoints = popElement.time.length;
-
+            // *** 關鍵修正：使用 MinT (最低溫) 作為時間軸基準，因為它最穩定 ***
+            const timeBaselineElement = elements.find(e => e.elementName === 'MinT');
+            if (!timeBaselineElement) return [];
+            
+            const timePoints = timeBaselineElement.time.length;
             const forecasts = [];
 
             // 輔助函數：從 elements 中找出特定時間、特定 element 的值
@@ -371,14 +371,19 @@
             }
 
             for (let i = 0; i < timePoints; i++) {
+                // 讀取基準元素的時間
+                const startTime = timeBaselineElement.time[i].startTime;
+                
                 forecasts.push({
-                    startTime: popElement.time[i].startTime,
+                    startTime: startTime,
                     weather: getElementValue('Wx', i),
                     minTemp: getElementValue('MinT', i),
                     maxTemp: getElementValue('MaxT', i),
+                    // 降雨機率 PoP6h/PoP12h 任選一個
                     rain: getElementValue('PoP6h', i) || getElementValue('PoP12h', i),
-                    feelTemp: getElementValue('AT', i),
-                    windSpeed: getElementValue('WS', i)
+                    // 騎行專用資訊
+                    feelTemp: getElementValue('AT', i), 
+                    windSpeed: getElementValue('WS', i) 
                 });
             }
             return forecasts;
