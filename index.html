@@ -1,4 +1,4 @@
-
+<!DOCTYPE html>
 <html lang="zh-TW">
 
 <head>
@@ -437,12 +437,13 @@
             const forecasts = parseCwaData(cwaRawData);
 
             if (forecasts.length === 0) {
-                // 為了不使用 alert()，這裡將錯誤訊息寫入 UI
+                // 如果解析失敗，將錯誤訊息寫入 UI
                 document.getElementById('loading').innerHTML = `
-                    <div style="font-size: 2rem; color: white;">⚠️ 資料載入錯誤</div>
+                    <div style="font-size: 2rem; color: white;">⚠️ 資料解析錯誤</div>
                     <p style="color: white; font-weight: bold; margin-top: 20px; max-width: 80%; text-align: center;">
-                        未能成功解析宜蘭縣天氣資料，可能是後端服務器問題。
-                        <br>請確認您的代理服務器 ${API_URL} 是否正常運行。
+                        未能成功解析宜蘭縣天氣資料的內部結構。
+                        <br>請確認您的代理服務器 <strong>${API_URL}</strong> 回傳的資料結構是否正確。
+                        <br>詳情請按 F12 檢查 Console 獲取詳情。
                     </p>
                 `;
                 document.getElementById('loading').style.display = 'flex';
@@ -548,20 +549,23 @@
                     console.log("代理服務數據成功取得，開始解析...");
                     // 傳遞整個回傳的 JSON 物件給 renderWeather
                     renderWeather(json);
-                } else {
-                    // 如果代理回傳 success: "false"
-                    const errorDetails = json.message || "未知錯誤，請檢查後端日誌。";
+                } else if (json) {
+                    // 如果代理回傳 success: "false" 或其他非 success: "true" 的結構
+                    const errorDetails = json.message || JSON.stringify(json, null, 2);
                     console.error(`代理服務錯誤: ${errorDetails}`, json);
-                    throw new Error(`代理服務錯誤: ${errorDetails}`);
+                    throw new Error(`代理服務器回傳錯誤: ${errorDetails}`);
+                } else {
+                     // 處理 json 結構缺失的情況
+                    throw new Error(`代理服務器回傳資料結構錯誤 (空值或格式異常)。`);
                 }
             } catch (e) {
                 console.error("fetchWeather 函數發生致命錯誤:", e);
                 // 為了不使用 alert()，這裡將錯誤訊息寫入 UI
                 document.getElementById('loading').innerHTML = `
-                    <div style="font-size: 2rem; color: white;">❌ 網路連線失敗</div>
+                    <div style="font-size: 2rem; color: white;">❌ 連線或資料處理失敗</div>
                     <p style="color: white; font-weight: bold; margin-top: 20px; max-width: 80%; text-align: center;">
-                        無法連線至天氣服務。
-                        <br>錯誤訊息: ${e.message}
+                        無法連線或處理天氣服務資料。
+                        <br>錯誤訊息: <strong style="color: var(--ac-yellow);">${e.message}</strong>
                         <br>請按 F12 檢查 Console 獲取詳情。
                     </p>
                 `;
