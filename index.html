@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>單車追風天氣 🚴‍♂️</title>
+    <title>單車追風天氣 🚴‍♂️ (宜蘭限定)</title>
     <link rel="icon" type="image/png" href="./icon-v2.png">
     <link rel="apple-touch-icon" href="./icon-v2.png">
     <link rel="apple-touch-icon" sizes="180x180" href="./icon-v2.png">
@@ -96,6 +96,7 @@
             gap: 10px;
         }
 
+        /* *** 修正：將下拉選單移除，硬編碼為宜蘭縣 *** */
         .location-pill {
             background: var(--ac-yellow);
             /* 陽光黃 */
@@ -107,18 +108,6 @@
             transform: rotate(-2deg);
             border: 2px solid white;
             box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.1);
-        }
-
-        /* 縣市選擇下拉選單 */
-        #citySelect {
-            font-family: 'Zen Maru Gothic', sans-serif;
-            padding: 5px 10px;
-            border-radius: 10px;
-            border: 2px solid white;
-            background-color: white;
-            font-size: 1rem;
-            font-weight: bold;
-            color: var(--ac-dark);
         }
 
         .update-pill {
@@ -309,9 +298,8 @@
     </div>
     <div class="status-bar">
         <div class="location-group">
-            <div class="location-pill">🚴 追風地點</div>
-            <select id="citySelect"></select>
-        </div>
+            <div class="location-pill">🚴 宜蘭縣</div>
+            </div>
         <div id="updateTime" class="update-pill">更新中...</div>
     </div>
 
@@ -327,18 +315,12 @@
     </div>
 
     <script>
-        // 將 API URL 更改為基礎路徑，縣市代碼將由前端動態拼接
+        // *** 修正：硬編碼宜蘭縣的 API 資訊 ***
         const BASE_API_URL = "https://cwaweather.zeabur.app/api/weather/";
-        const cityMap = {
-            "臺北市": "Taipei", "新北市": "NewTaipei", "桃園市": "Taoyuan", "臺中市": "Taichung",
-            "臺南市": "Tainan", "高雄市": "Kaohsiung", "基隆市": "Keelung", "新竹市": "Hsinchu",
-            "新竹縣": "HsinchuCounty", "苗栗縣": "MiaoliCounty", "彰化縣": "ChanghuaCounty",
-            "南投縣": "NantouCounty", "雲林縣": "YunlinCounty", "嘉義市": "Chiayi", "嘉義縣": "ChiayiCounty",
-            "屏東縣": "PingtungCounty", "宜蘭縣": "YilanCounty", "花蓮縣": "HualienCounty",
-            "臺東縣": "TaitungCounty", "澎湖縣": "PenghuCounty", "金門縣": "KinmenCounty", "連江縣": "LienchiangCounty"
-        };
-        const allCities = Object.keys(cityMap);
-        let currentCityName = "宜蘭縣";
+        const YILAN_CODE = "YilanCounty";
+        const currentCityName = "宜蘭縣"; // 僅用於顯示
+
+        // ... (getWeatherIcon, getAdvice, getTimePeriod 函式維持不變) ...
 
         /**
          * 根據天氣描述回傳對應的 Icon
@@ -409,9 +391,9 @@
             return "深夜";
         }
 
-        // --- 核心修正區：增強資料安全檢查 ---
+
+        // *** 修正：增強資料安全檢查，解決 "Cannot read properties of undefined" 錯誤 ***
         function renderWeather(data) {
-            // 由於後端直接回傳 CWA 的原始 JSON，我們需要從中解析出我們需要的預報資料。
             
             // 1. **核心安全檢查** (防止 Cannot read properties of undefined 錯誤)
             if (!data || !data.records || !data.records.locations || data.records.locations.length === 0 || 
@@ -529,146 +511,4 @@
                     
                     <div class="advice-grid">
                         <div class="advice-item">
-                            <div class="advice-icon">${advice.comfortIcon}</div>
-                            <div class="advice-text">${advice.comfortText}</div>
-                            <div style="font-size:0.7rem; color:#999">均溫 ${avgTemp}°</div>
-                        </div>
-                        <div class="advice-item">
-                            <div class="advice-icon">${advice.rainIcon}</div>
-                            <div class="advice-text">${advice.rainText}</div>
-                            <div style="font-size:0.7rem; color:#999">降雨率 ${current.rain}%</div>
-                        </div>
-                        <div class="advice-item">
-                            <div class="advice-icon">${advice.windIcon}</div>
-                            <div class="advice-text">${advice.windText}</div>
-                            <div style="font-size:0.7rem; color:#999">風速 ${current.windSpeed}m/s</div>
-                        </div>
-                        <div class="advice-item">
-                            <div class="advice-icon">🌡️</div>
-                            <div class="advice-text">溫差範圍</div>
-                            <div style="font-size:0.7rem; color:#999">${current.minTemp}° ~ ${current.maxTemp}°</div>
-                        </div>
-                    </div>
-                </div>
-            `;
-
-            // 2. 渲染稍後預報
-            const scrollContainer = document.getElementById('futureForecasts');
-            scrollContainer.innerHTML = '';
-
-            const todayDate = new Date().getDate();
-
-            others.forEach(f => {
-                let p = getTimePeriod(f.startTime);
-                const fDate = new Date(f.startTime);
-                if (fDate.getDate() !== todayDate) {
-                    p = "明天" + p;
-                }
-                const miniIcon = getWeatherIcon(f.weather);
-
-                scrollContainer.innerHTML += `
-                    <div class="mini-card">
-                        <div class="mini-time">${p}</div>
-                        <div class="mini-icon">${miniIcon}</div>
-                        <div class="mini-temp">${f.minTemp}° - ${f.maxTemp}°</div>
-                        <div style="font-size:0.8rem; color:#888; margin-top:5px;">💧${f.rain}%</div>
-                    </div>
-                `;
-            });
-
-            // 3. 右上角顯示今日日期
-            const now = new Date();
-            const month = now.getMonth() + 1;
-            const date = now.getDate();
-            const dayIndex = now.getDay();
-            const days = ["週日", "週一", "週二", "週三", "週四", "週五", "週六"];
-
-            document.getElementById('updateTime').textContent = `${month}月${date}日 ${days[dayIndex]}`;
-        }
-
-        /**
-         * 抓取指定縣市的天氣資料
-         * @param {string} cityCode - 縣市的英文代碼 (e.g., YilanCounty)
-         */
-        async function fetchWeather(cityCode) {
-            const apiEndpoint = BASE_API_URL + cityCode;
-            try {
-                // 顯示 Loading 畫面
-                document.getElementById('loading').style.display = 'flex';
-                document.getElementById('mainContent').style.display = 'none';
-
-                // 1. 定義「最低等待時間」：1500 毫秒 (1.5秒)
-                const delayPromise = new Promise(resolve => setTimeout(resolve, 1500));
-
-                // 2. 定義「抓取資料」的工作
-                const fetchPromise = fetch(apiEndpoint).then(res => {
-                    if (!res.ok) {
-                        // 處理 HTTP 錯誤 (e.g., 404, 500)
-                        throw new Error(`HTTP Error: ${res.status} - ${res.statusText}`);
-                    }
-                    return res.json();
-                });
-
-                // 3. Promise.all 會等待「兩個都完成」才會往下走
-                const [_, json] = await Promise.all([delayPromise, fetchPromise]);
-
-                // 檢查 CWA 原始資料結構中是否存在 records 屬性
-                if (json.records) { 
-                    renderWeather(json);
-                    
-                    document.getElementById('loading').style.display = 'none';
-                    document.getElementById('mainContent').style.display = 'block';
-                } else if (json.error) {
-                    // 檢查後端是否回傳了帶有錯誤訊息的 JSON (例如 server.js 的錯誤處理)
-                     throw new Error(json.message || "API Error: 後端代理服務回傳錯誤");
-                } else {
-                     // 處理無法預期的 JSON 格式
-                    throw new Error("API Error: 無法解析 CWA 資料");
-                }
-            } catch (e) {
-                console.error(e);
-                // 讀取失敗後，在頁面顯示錯誤訊息，而非彈窗
-                document.getElementById('loading').style.display = 'none';
-                document.getElementById('mainContent').style.display = 'block';
-                 document.getElementById('heroCard').innerHTML = `<p style="text-align:center; color:#FFFEF2; padding: 20px;">
-                    🚫 資料讀取失敗。請確認後端服務是否運行且 API Key 有效。<br>錯誤: ${e.message}
-                </p>`;
-                document.getElementById('futureForecasts').innerHTML = '';
-            }
-        }
-
-        /**
-         * 初始化縣市選單
-         */
-        function initializeCitySelect() {
-            const select = document.getElementById('citySelect');
-            let optionsHtml = '';
-            
-            // 將中文縣市名稱反向對應到英文代碼，並在 <option> 中設定 value
-            allCities.forEach(cityName => {
-                const cityCode = cityMap[cityName];
-                const selected = cityName === currentCityName ? 'selected' : '';
-                optionsHtml += `<option value="${cityCode}" ${selected}>${cityName}</option>`;
-            });
-            select.innerHTML = optionsHtml;
-
-            select.addEventListener('change', (event) => {
-                const newCityCode = event.target.value;
-                // 找到對應的中文名稱來更新 Pill
-                currentCityName = allCities.find(key => cityMap[key] === newCityCode);
-                document.querySelector('.location-pill').textContent = `🚴 ${currentCityName}`;
-                fetchWeather(newCityCode);
-            });
-        }
-
-
-        document.addEventListener("DOMContentLoaded", () => {
-            initializeCitySelect();
-            // 預設載入宜蘭縣的天氣
-            fetchWeather(cityMap[currentCityName]);
-            document.querySelector('.location-pill').textContent = `🚴 ${currentCityName}`;
-        });
-    </script>
-</body>
-
-</html>
+                            <div class="
