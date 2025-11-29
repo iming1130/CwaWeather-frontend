@@ -279,12 +279,7 @@
     <script>
         // === API 設定 (使用 Zeabur 代理服務器) ===
         // 現在使用您的代理服務器上正確的路徑
-        const API_URL = "https://cwaweather.zeabur.app/api/weather/yilan"; 
-
-        // 這些 CWA 參數現在由您的 Node.js 代理處理，但它們在前端解析邏輯中並不妨礙。
-        const CWA_AUTH_CODE = "CWA-6F921694-6A48-43AE-BF4E-499804D6CBFC"; 
-        const LOCATION_NAME = encodeURIComponent("宜蘭縣"); 
-
+        const API_URL = "https://cwaweather.zeabur.app/api/weather/yilan";
 
         function getWeatherIcon(weather) {
             if (!weather) return "🌤️";
@@ -297,8 +292,9 @@
         }
 
         function getBikeAdvice(rainProb, feelTemp, windSpeed) {
-            let windIcon = "❓", windText = "風速資訊缺失", tempIcon = "❓", tempText = "溫度資訊缺失", rainIcon, rainText;
+            let windIcon = "❓", windText = "風速資訊缺失", tempIcon = "❓", tempText = "溫度資訊缺失";
 
+            // 確保值是數字或可解析
             const ws = parseFloat(windSpeed) || 0; 
             const ft = parseInt(feelTemp) || 25;    
             const pop = parseInt(rainProb) || 0;     
@@ -334,8 +330,8 @@
             }
 
             // 3. 降雨建議 (PoP)
-            rainIcon = (pop > 30) ? "☂️" : "🌂";
-            rainText = (pop > 30) ? "記得帶傘！" : "不用帶傘";
+            const rainIcon = (pop > 30) ? "☂️" : "🌂";
+            const rainText = (pop > 30) ? "記得帶傘！" : "不用帶傘";
 
 
             return { windIcon, windText, tempIcon, tempText, rainIcon, rainText };
@@ -353,9 +349,13 @@
         // === CWA 數據解析器 (與之前版本保持一致，期待 F-D0047-091 的結構) ===
         function parseCwaData(cwaJson) {
             try {
-                // 檢查數據結構是否完整
+                // 修正: cwaJson 應是 CWA 官方回傳的原始 JSON 結構
                 if (!cwaJson.records || !cwaJson.records.location || cwaJson.records.location.length === 0) {
                     console.error("解析失敗: 找不到 records 或 location 數據。");
+                    // 這裡可以檢查是否有 CWA 錯誤訊息
+                    if (cwaJson.cwaopendata && cwaJson.cwaopendata.identifier) {
+                        console.error("CWA 錯誤碼:", cwaJson.cwaopendata.identifier);
+                    }
                     return [];
                 }
 
@@ -374,14 +374,11 @@
                      return [];
                 }
                 
-                let timeBaselineElement = elements.find(e => e.elementName === 'MinT');
-                if (!timeBaselineElement) {
-                    console.warn("解析警告: 找不到 MinT 元素，改用 Wx 元素作為時間基準。");
-                    timeBaselineElement = elements.find(e => e.elementName === 'Wx');
-                }
+                // 找出一個有時間軸的元素作為基準
+                let timeBaselineElement = elements.find(e => e.time && e.time.length > 0);
                 
                 if (!timeBaselineElement || !timeBaselineElement.time) {
-                    console.error("解析失敗: 找不到任何可用的時間基準元素 (MinT 或 Wx)。");
+                    console.error("解析失敗: 找不到任何可用的時間基準元素。");
                     return [];
                 }
 
@@ -393,25 +390,38 @@
                 function getElementValue(elementName, timeIndex) {
                     const element = elements.find(e => e.elementName === elementName);
                     if (element && element.time.length > timeIndex) {
-                        // F-D0047-091 的結構中，value 就在 elementValue 下
-                        return element.time[timeIndex].elementValue?.value || null;
+                        // F-D0047-091 的結構中，value 就在 elementValue 下 (或者 parameter.parameterName/Value)
+                        const timeSlot = element.time[timeIndex];
+                        // 試圖從 elementValue 取值 (適用於 F-D0047-091)
+                        if (timeSlot.elementValue?.value !== undefined && timeSlot.elementValue.value !== null) {
+                            return timeSlot.elementValue.value;
+                        }
+                        // 試圖從 parameter 取值 (適用於 F-C0032-001 或其他)
+                        if (timeSlot.parameter?.parameterName !== undefined && timeSlot.parameter.parameterName !== null) {
+                            return timeSlot.parameter.parameterName;
+                        }
+                        return null; 
                     }
                     return null;
                 }
 
                 for (let i = 0; i < timePoints; i++) {
                     const startTime = timeBaselineElement.time[i].startTime;
-
-                    // PoP6h 和 PoP12h 都試圖取得，並以 0 作為預設值
+                    
+                    // 獲取各個要素的值
                     const rainValue = getElementValue('PoP6h', i) || getElementValue('PoP12h', i) || '0'; 
+                    // AT 和 Wx (天氣現象) 使用 parameterName/parameterValue
                     const feelTempValue = getElementValue('AT', i) || 'N/A';
                     const windSpeedValue = getElementValue('WS', i) || 'N/A';
+                    const weatherDesc = getElementValue('Wx', i) || 'N/A';
+                    const minTemp = getElementValue('MinT', i) || 'N/A';
+                    const maxTemp = getElementValue('MaxT', i) || 'N/A';
 
                     forecasts.push({
                         startTime: startTime,
-                        weather: getElementValue('Wx', i) || 'N/A',
-                        minTemp: getElementValue('MinT', i) || 'N/A',
-                        maxTemp: getElementValue('MaxT', i) || 'N/A',
+                        weather: weatherDesc,
+                        minTemp: minTemp,
+                        maxTemp: maxTemp,
                         rain: rainValue,
                         feelTemp: feelTempValue,
                         windSpeed: windSpeedValue
@@ -426,12 +436,14 @@
         }
 
         function renderWeather(data) {
-            const forecasts = parseCwaData(data);
+            // 修正: 檢查 data 是否為 CWA 原始資料 (包含 records)
+            const cwaRawData = data.records ? data : data.data; // 優先使用原始資料，如果沒有，再檢查 data 屬性
+
+            const forecasts = parseCwaData(cwaRawData);
 
             if (forecasts.length === 0) {
-                // 如果解析失敗，可能是代理回傳的 JSON 結構不是 CWA 格式
                 alert(`未能成功解析宜蘭縣天氣資料。
-                    \n請確認您的代理服務器 ${API_URL} 回傳的資料是否正確 (F-D0047-091 格式)。
+                    \n請確認您的代理服務器 ${API_URL} 回傳的資料結構是否正確。
                     \n詳情請查看瀏覽器控制台 (F12)。`);
                 return;
             }
@@ -441,14 +453,15 @@
 
             // 1. 渲染 Hero Card (主畫面)
             const bikeAdvice = getBikeAdvice(current.rain, current.feelTemp, current.windSpeed);
-            const displayTemp = (current.feelTemp !== 'N/A' && current.feelTemp !== null) ? current.feelTemp : 
-                                (current.minTemp !== 'N/A' ? `${current.minTemp}°` : '25°'); // 體感溫度優先顯示
+            // 優先使用體感溫度，如果沒有，則使用最低溫度 (並移除單位，讓它看起來更像一個數字)
+            const displayTemp = (current.feelTemp !== 'N/A' && current.feelTemp !== null) ? current.feelTemp.replace('°C', '') : 
+                                (current.minTemp !== 'N/A' ? current.minTemp.replace('°C', '') : '25'); 
 
             document.getElementById('heroCard').innerHTML = `<div class="hero-card">
                             <div class="hero-period">${getTimePeriod(current.startTime)} 預報</div>
                             <div class="hero-temp-container">
                                 <div class="hero-icon">${getWeatherIcon(current.weather)}</div>
-                                <div class="hero-temp">${displayTemp}</div>
+                                <div class="hero-temp">${displayTemp}°</div>
                             </div>
                             <div class="hero-desc">${current.weather}</div>
                             
@@ -484,11 +497,16 @@
                 if (fDate.getDate() !== todayDate) {
                     p = "明天" + p;
                 }
+                
+                // 確保溫度數字顯示正確
+                const minTemp = f.minTemp.toString().replace('°C', '');
+                const maxTemp = f.maxTemp.toString().replace('°C', '');
+
 
                 scrollContainer.innerHTML += `<div class="mini-card">
                                 <div class="mini-time">${p}</div>
                                 <div class="mini-icon">${getWeatherIcon(f.weather)}</div>
-                                <div class="mini-temp">${f.minTemp}° - ${f.maxTemp}°</div>
+                                <div class="mini-temp">${minTemp}° - ${maxTemp}°</div>
                                 <div style="font-size:0.8rem; color:#888; margin-top:5px;">💧${f.rain}%</div>
                             </div>
                         `;
@@ -515,22 +533,25 @@
 
                 const fetchPromise = fetch(API_URL, { mode: 'cors' }).then(async res => {
                     if (!res.ok) {
-                        console.error(`API 請求 HTTP 錯誤，狀態碼: ${res.status}`);
+                        const errorBody = await res.json().catch(() => ({ message: "無法解析代理錯誤訊息" }));
+                        console.error(`API 請求 HTTP 錯誤，狀態碼: ${res.status}`, errorBody);
                         throw new Error(`HTTP 狀態碼 ${res.status}。請檢查 Zeabur 代理服務 ${API_URL} 是否正常運行。`);
                     }
                     return res.json();
                 });
 
                 const [_, json] = await Promise.all([delayPromise, fetchPromise]);
-
+                
+                // 檢查統一格式的 success 欄位
                 if (json && json.success === "true") {
                     console.log("代理服務數據成功取得，開始解析...");
-                    renderWeather(json);
+                    // 傳遞整個回傳的 JSON 物件給 renderWeather
+                    renderWeather(json); 
                 } else {
-                    // 如果 CWA API 傳回 success=false (例如 Key 無效)
+                    // 如果代理回傳 success: "false"
                     const errorDetails = json.message || "未知錯誤，請檢查後端日誌。";
-                    console.error(`CWA API 錯誤: ${errorDetails}`);
-                    throw new Error(`CWA API 錯誤: ${errorDetails}`);
+                    console.error(`代理服務錯誤: ${errorDetails}`);
+                    throw new Error(`代理服務錯誤: ${errorDetails}`);
                 }
             } catch (e) {
                 console.error("fetchWeather 函數發生致命錯誤:", e);
@@ -542,3 +563,5 @@
         document.addEventListener("DOMContentLoaded", fetchWeather);
     </script>
 </body>
+
+</html>
