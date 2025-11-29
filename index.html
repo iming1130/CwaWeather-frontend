@@ -409,24 +409,25 @@
             return "深夜";
         }
 
-
+        // --- 核心修正區：增強資料安全檢查 ---
         function renderWeather(data) {
             // 由於後端直接回傳 CWA 的原始 JSON，我們需要從中解析出我們需要的預報資料。
             
-            // 1. **核心安全檢查** (修復 Cannot read properties of undefined (reading '0') 錯誤)
+            // 1. **核心安全檢查** (防止 Cannot read properties of undefined 錯誤)
             if (!data.records || !data.records.locations || data.records.locations.length === 0 || 
                 !data.records.locations[0].location || data.records.locations[0].location.length === 0) 
             {
                 document.getElementById('loading').style.display = 'none';
                 document.getElementById('mainContent').style.display = 'block';
+                // 顯示更精確的錯誤訊息
                 document.getElementById('heroCard').innerHTML = `<p style="text-align:center; color:#FFFEF2; padding: 20px;">
-                    🤷‍♀️ 該地區暫無可用的預報資料，或 API 回傳格式錯誤。
+                    ⚠️ 資料結構異常！該地區暫無預報資料，或後端API回傳錯誤。
                 </p>`;
                 document.getElementById('futureForecasts').innerHTML = '';
                 return;
             }
 
-            // 取得第一個鄉鎮的資料（安全檢查後才取用）
+            // 安全取用第一個鄉鎮的資料
             const locationData = data.records.locations[0].location[0];
             const weatherElements = locationData.weatherElement;
             const forecasts = []; 
@@ -434,12 +435,16 @@
             // 輔助函式：根據時間取得對應的氣象資料 (強化 null 檢查)
             const getElementValue = (elementName, time) => {
                 const element = weatherElements.find(e => e.elementName === elementName);
-                if (!element || !element.time) return null; 
+                if (!element || !element.time) return null; // 檢查 weatherElement 和 time 
 
                 const timeIndex = element.time.findIndex(t => t.startTime === time);
                 if (timeIndex !== -1) {
-                    const valueObj = element.time[timeIndex].elementValue[0];
-                    if (!valueObj) return null; // 檢查 elementValue[0]
+                    // 檢查 elementValue 陣列是否為空
+                    const elementValues = element.time[timeIndex].elementValue;
+                    if (!elementValues || elementValues.length === 0) return null;
+                    
+                    const valueObj = elementValues[0]; // 安全取用 elementValue[0]
+                    if (!valueObj) return null; 
                     
                     const value = valueObj.value;
                     const measure = valueObj.measures;
@@ -450,7 +455,15 @@
 
             // 氣溫 (MaxT/MinT) 預報的時間點是最準確的，以它為基準遍歷
             const tempElement = weatherElements.find(e => e.elementName === 'MaxT');
-            if (!tempElement || !tempElement.time) return; // 檢查 MaxT 資料
+            if (!tempElement || !tempElement.time) { // 再次檢查 MaxT 資料完整性
+                 document.getElementById('loading').style.display = 'none';
+                document.getElementById('mainContent').style.display = 'block';
+                document.getElementById('heroCard').innerHTML = `<p style="text-align:center; color:#FFFEF2; padding: 20px;">
+                    🤷‍♀️ 缺乏關鍵氣溫資料（MaxT/MinT），無法進行預報。
+                </p>`;
+                document.getElementById('futureForecasts').innerHTML = '';
+                return;
+            }
 
             tempElement.time.forEach((timePeriod, index) => {
                 const startTime = timePeriod.startTime;
@@ -487,12 +500,13 @@
                  document.getElementById('loading').style.display = 'none';
                 document.getElementById('mainContent').style.display = 'block';
                 document.getElementById('heroCard').innerHTML = `<p style="text-align:center; color:#FFFEF2; padding: 20px;">
-                    🤷‍♀️ 氣溫資料（MaxT/MinT）不足，無法進行預報。
+                    🤷‍♀️ 氣溫資料整理失敗，無法顯示預報。
                 </p>`;
                 document.getElementById('futureForecasts').innerHTML = '';
                 return;
             }
             
+            // 以下渲染邏輯
             const current = forecasts[0];
             const others = forecasts.slice(1);
 
@@ -577,7 +591,6 @@
          * @param {string} cityCode - 縣市的英文代碼 (e.g., YilanCounty)
          */
         async function fetchWeather(cityCode) {
-            // *** 路徑已經在前面步驟修正為動態 cityCode ***
             const apiEndpoint = BASE_API_URL + cityCode;
             try {
                 // 顯示 Loading 畫面
@@ -599,24 +612,28 @@
                 // 3. Promise.all 會等待「兩個都完成」才會往下走
                 const [_, json] = await Promise.all([delayPromise, fetchPromise]);
 
-                // 由於後端回傳的是 CWA 原始 JSON，我們無法用單一 'success' 判斷，
-                // 但 CWA 成功的 JSON 會有 "records" 屬性。
+                // 檢查 CWA 原始資料結構中是否存在 records 屬性
                 if (json.records) { 
                     renderWeather(json);
-
-                    // 資料處理好後，隱藏 Loading，顯示主畫面
+                    
                     document.getElementById('loading').style.display = 'none';
                     document.getElementById('mainContent').style.display = 'block';
+                } else if (json.error) {
+                    // 檢查後端是否回傳了帶有錯誤訊息的 JSON (例如 server.js 的錯誤處理)
+                     throw new Error(json.message || "API Error: 後端代理服務回傳錯誤");
                 } else {
-                    // 假設是後端代理服務的錯誤 (例如 CWA API Key 無效)
-                    throw new Error(json.message || "API Error: 無法解析 CWA 資料");
+                     // 處理無法預期的 JSON 格式
+                    throw new Error("API Error: 無法解析 CWA 資料");
                 }
             } catch (e) {
                 console.error(e);
-                alert(`天氣資料讀取失敗！請檢查 API 或縣市名稱: ${currentCityName}\n錯誤細節: ${e.message}`);
-                // 讀取失敗也應該隱藏 Loading
+                // 使用 console.error 而非 alert，因為 alert 會阻擋 UI 顯示錯誤
                 document.getElementById('loading').style.display = 'none';
                 document.getElementById('mainContent').style.display = 'block';
+                 document.getElementById('heroCard').innerHTML = `<p style="text-align:center; color:#FFFEF2; padding: 20px;">
+                    🚫 資料讀取失敗。請確認後端服務是否運行且 API Key 有效。<br>錯誤: ${e.message}
+                </p>`;
+                document.getElementById('futureForecasts').innerHTML = '';
             }
         }
 
