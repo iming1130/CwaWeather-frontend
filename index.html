@@ -4,43 +4,392 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>單車追風天氣 🚴‍♀️</title>
+  <link rel="icon" type="image/png" href="./icon-v2.png" />
   <link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;700;900&display=swap" rel="stylesheet">
 
   <style>
-    body { font-family: "Zen Maru Gothic"; padding: 16px; }
+    :root{
+      --vivid-blue: #4FB5D9; /* 活力藍 */
+      --sun-yellow: #F9F195; /* 陽光黃 */
+      --light-cloud: #FFFEF2; /* 輕雲白 */
+      --brown: #796452;
+      --dark: #58504A;
+    }
+    *{box-sizing:border-box;margin:0;padding:0}
+    html,body{height:100%}
+    body{
+      font-family:'Zen Maru Gothic',sans-serif;
+      background: linear-gradient(180deg, rgba(79,181,217,0.12), rgba(255,255,255,0.02));
+      color:var(--dark);
+      -webkit-font-smoothing:antialiased;
+      padding:18px;
+      /* 以腳踏車 svg 作為游標（data URL） */
+      cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"><path fill="%234FB5D9" d="M5 16a3 3 0 1 0 0 6 3 3 0 0 0 0-6zm0-2a5 5 0 1 1 0 10 5 5 0 0 1 0-10zM19 16a3 3 0 1 0 0 6 3 3 0 0 0 0-6zm0-2a5 5 0 1 1 0 10 5 5 0 0 1 0-10zM7 10h2l2-4 3 6h3" /></svg>') 12 12, auto;
+    }
+
+    .container{
+      max-width:720px;
+      margin:0 auto;
+    }
+
+    /* 狀態列 */
+    .status-bar{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:10px;
+      margin-bottom:14px;
+    }
+    .brand {
+      display:flex;
+      align-items:center;
+      gap:10px;
+    }
+    .logo-pill{
+      background:var(--light-cloud);
+      border-radius:14px;
+      padding:6px 12px;
+      border:4px solid white;
+      transform:rotate(-3deg);
+      font-weight:900;
+      color:var(--dark);
+      box-shadow:0 6px 0 rgba(0,0,0,0.06);
+      display:flex;
+      gap:8px;
+      align-items:center;
+      font-size:1rem;
+    }
+    .update-pill{
+      background:var(--vivid-blue);
+      color:white;
+      padding:6px 10px;
+      border-radius:14px;
+      font-weight:700;
+      box-shadow:0 3px 0 rgba(0,0,0,0.08);
+      font-size:0.9rem;
+    }
+
+    /* hero card */
+    .hero-card{
+      background:var(--light-cloud);
+      border-radius:28px;
+      padding:22px;
+      border:4px solid white;
+      box-shadow:0 18px 30px rgba(79,181,217,0.08);
+      position:relative;
+      margin-bottom:18px;
+    }
+    .hero-tag{
+      position:absolute;
+      left:18px;
+      top:-14px;
+      background:var(--sun-yellow);
+      color:var(--brown);
+      padding:6px 14px;
+      border-radius:12px;
+      transform:rotate(-6deg);
+      font-weight:900;
+      border:3px solid white;
+    }
+    .hero-top{
+      display:flex;
+      gap:12px;
+      align-items:center;
+      justify-content:center;
+      margin-top:6px;
+    }
+    .hero-icon{
+      font-size:4.4rem;
+      filter:drop-shadow(0 6px 0 rgba(0,0,0,0.05));
+    }
+    /* 動感閃電 */
+    .thunder{
+      display:inline-block;
+      animation: flash 1.1s infinite;
+    }
+    @keyframes flash{
+      0%{transform:translateY(0) scale(1)}
+      50%{transform:translateY(-6px) scale(1.05)}
+      100%{transform:translateY(0) scale(1)}
+    }
+
+    .hero-temp{
+      font-size:3.2rem;
+      font-weight:900;
+      color:var(--dark);
+      line-height:1;
+    }
+    .hero-desc{
+      text-align:center;
+      font-size:1.1rem;
+      font-weight:800;
+      color:#6b5a4f;
+      margin-top:8px;
+    }
+
+    /* 建議區：騎行重點 */
+    .advice-grid{
+      display:grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap:12px;
+      margin-top:16px;
+    }
+    .advice-item{
+      background: rgba(255,255,255,0.9);
+      border-radius:14px;
+      padding:12px;
+      text-align:center;
+      border:3px solid white;
+      box-shadow:0 6px 0 rgba(0,0,0,0.04);
+    }
+    .advice-icon{font-size:1.6rem;margin-bottom:6px}
+    .advice-title{font-weight:900;color:var(--dark);font-size:0.95rem}
+    .advice-sub{font-size:0.85rem;color:#6f665d;margin-top:6px}
+
+    /* 預報區（橫向） */
+    .section-title{
+      font-weight:900;
+      color:var(--vivid-blue);
+      margin:8px 6px;
+      font-size:1.05rem;
+    }
+    .scroll-row{
+      display:flex;
+      gap:12px;
+      overflow-x:auto;
+      padding-bottom:8px;
+    }
+    .card-day{
+      min-width:150px;
+      background:rgba(255,255,255,0.95);
+      border-radius:16px;
+      padding:12px;
+      border:3px solid white;
+      text-align:center;
+      box-shadow:0 6px 0 rgba(0,0,0,0.03);
+    }
+    .card-day .day{
+      font-weight:900;
+      color:var(--dark);
+      margin-bottom:6px;
+    }
+    .card-day .range{font-weight:800;color:#6b5a4f;margin-top:6px}
+    .card-day .pop{font-size:0.9rem;margin-top:8px;color:#5f6a74}
+
+    /* loading */
+    .loading{
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      height:70vh;
+      color:var(--vivid-blue);
+      font-weight:900;
+    }
+
+    /* small screen tweaks */
+    @media (max-width:420px){
+      .advice-grid{grid-template-columns:1fr 1fr}
+      .hero-temp{font-size:2.4rem}
+    }
+
   </style>
 </head>
 <body>
-  <h2>單車追風天氣</h2>
-  <div id="result">讀取中...</div>
+  <div class="container">
+    <div class="status-bar">
+      <div class="brand">
+        <div class="logo-pill">🚴 單車追風 · 宜蘭</div>
+      </div>
+      <div id="updateTime" class="update-pill">更新中...</div>
+    </div>
+
+    <div id="mainArea">
+      <div id="hero" class="hero-card" aria-live="polite">
+        <div class="hero-tag">週末騎行建議</div>
+        <div id="heroContent" class="hero-top">
+          <!-- 由 JS 填入 -->
+        </div>
+        <div id="heroDesc" class="hero-desc"></div>
+
+        <div class="advice-grid" id="adviceGrid">
+          <!-- 由 JS 填入 -->
+        </div>
+      </div>
+
+      <div>
+        <h3 class="section-title">一週預報（宜蘭縣）</h3>
+        <div class="scroll-row" id="weekRow">
+          <!-- 由 JS 填入 -->
+        </div>
+      </div>
+    </div>
+
+    <div id="loading" class="loading" style="display:none;">
+      <div style="font-size:3.8rem">🚴‍♀️</div>
+      <div style="margin-top:12px">正在為你偵測風向與坡度，準備出發…</div>
+    </div>
+  </div>
 
   <script>
-    // 自動切換 API：本地 / 線上
-    const API_URL =
-      location.hostname === "localhost" || location.hostname === "127.0.0.1"
-        ? "http://localhost:3000/api/weather/yilan"
-        : "https://cwaweather.zeabur.app/api/weather/yilan";
+    // API_URL：如在本地測試請改為 http://localhost:3000/api/weather/yilan
+    const API_URL = "https://cwaweather.zeabur.app/api/weather/yilan";
 
-    async function fetchWeather() {
-      try {
-        const res = await fetch(API_URL);
-        const json = await res.json();
+    function parseNumberFromString(s){
+      if (!s) return null;
+      const m = (""+s).match(/-?\d+(\.\d+)?/);
+      return m ? Number(m[0]) : null;
+    }
 
+    function windLevelText(wsValue){
+      // 若 wsValue 是節或 m/s，嘗試解析數字
+      const n = parseNumberFromString(wsValue);
+      // 這裡用簡化的分級：0-3 微風、4-6 中風、7+ 強風
+      if (n === null) return "—";
+      if (n <= 3) return "微風 (適合騎行)";
+      if (n <= 6) return "有感風速 (小心側風)";
+      return "強風 (建議斟酌騎乘)";
+    }
+
+    function pickIconFromWx(wx){
+      if (!wx) return "🚴‍♂️";
+      if (wx.includes("晴")) return "🚴‍♂️"; // 以騎車 emoji 取代晴
+      if (wx.includes("多雲")) return "🌥️";
+      if (wx.includes("陰")) return "☁️";
+      if (wx.includes("雷")) return '<span class="thunder">⚡</span>';
+      if (wx.includes("雨")) return "🌧️";
+      return "🚴‍♂️";
+    }
+
+    function comfortFromCI(ci){
+      if (!ci) return "—";
+      if (ci.includes("舒適") || ci.includes("適")) return "極舒適";
+      if (ci.includes("悶熱") || ci.includes("炎熱")) return "炎熱，注意補水";
+      if (ci.includes("偏冷") || ci.includes("寒冷")) return "偏冷，注意保暖";
+      return ci;
+    }
+
+    function createAdviceBlock(icon, title, sub){
+      return `<div class="advice-item">
+                <div class="advice-icon">${icon}</div>
+                <div class="advice-title">${title}</div>
+                <div class="advice-sub">${sub || ""}</div>
+              </div>`;
+    }
+
+    function formatDateLabel(startTime){
+      if (!startTime) return "";
+      const d = new Date(startTime);
+      const now = new Date();
+      const days = ["週日","週一","週二","週三","週四","週五","週六"];
+      const isToday = d.toDateString() === now.toDateString();
+      const tomorrow = new Date();
+      tomorrow.setDate(now.getDate()+1);
+      const isTomorrow = d.toDateString() === tomorrow.toDateString();
+      if (isToday) return "今天";
+      if (isTomorrow) return "明天";
+      return `${d.getMonth()+1}/${d.getDate()} ${days[d.getDay()]}`;
+    }
+
+    function render(data){
+      if (!data || !data.forecasts) {
+        alert("天氣資料格式錯誤");
+        return;
+      }
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('mainArea').style.display = 'block';
+
+      const forecasts = data.forecasts;
+
+      // 以每日第一個 time slot 當作該日代表（F-C0032-003 通常為日間分段）
+      // 我們做一個簡單的「按日期分群」，取每天的第一筆當摘要
+      const byDate = {};
+      forecasts.forEach(f => {
+        const dKey = f.startTime ? (new Date(f.startTime)).toDateString() : f.startTime;
+        if (!byDate[dKey]) byDate[dKey] = [];
+        byDate[dKey].push(f);
+      });
+
+      const dateKeys = Object.keys(byDate).slice(0,7); // 最多 7 天
+      const days = dateKeys.map(k => byDate[k][0]); // 取該日第一筆
+
+      // Hero 顯示：取第一筆（最近）
+      const nowItem = forecasts[0] || days[0];
+
+      const heroIcon = pickIconFromWx(nowItem.wx);
+      const minT = parseNumberFromString(nowItem.minT) || 0;
+      const maxT = parseNumberFromString(nowItem.maxT) || 0;
+      const avgT = Math.round((minT + maxT)/2);
+      const pop = nowItem.pop || "—";
+      const ciText = comfortFromCI(nowItem.ci);
+      const ws = nowItem.ws || "—";
+      const windText = windLevelText(ws);
+
+      document.getElementById('heroContent').innerHTML = `
+        <div style="text-align:center">
+          <div class="hero-icon">${heroIcon}</div>
+        </div>
+        <div style="text-align:center">
+          <div class="hero-temp">${avgT}°</div>
+          <div style="font-size:0.95rem;margin-top:6px;font-weight:800">${nowItem.wx}</div>
+        </div>
+      `;
+      document.getElementById('heroDesc').textContent = `降雨：${pop}%  ·  體感：${ciText}  ·  風況：${windText}`;
+
+      // 建議區（3 格：騎行穩定度、體感舒適、降雨風險）
+      const advEl = document.getElementById('adviceGrid');
+      advEl.innerHTML = "";
+      advEl.innerHTML += createAdviceBlock("🌪️", "風速等級", windText);
+      advEl.innerHTML += createAdviceBlock("🌡️", "體感舒適度", ciText);
+      const rainRiskText = (parseNumberFromString(pop) >= 50) ? "高降雨風險，建議延期或帶防雨裝備" : "降雨機率低，適合出發";
+      advEl.innerHTML += createAdviceBlock("💧", "降雨風險", `${pop}% • ${rainRiskText}`);
+
+      // 一週預報卡
+      const row = document.getElementById('weekRow');
+      row.innerHTML = "";
+      days.forEach(d => {
+        const icon = pickIconFromWx(d.wx);
+        const popText = d.pop || "—";
+        const minV = d.minT || "—";
+        const maxV = d.maxT || "—";
+        const label = formatDateLabel(d.startTime);
+        row.innerHTML += `
+          <div class="card-day">
+            <div class="day">${label}</div>
+            <div class="big-icon" style="font-size:2.2rem">${icon}</div>
+            <div class="range">${minV}° - ${maxV}°</div>
+            <div class="pop">💧 降雨 ${popText}%</div>
+            <div style="margin-top:6px;font-size:0.85rem;color:#6b5a4f">體感：${comfortFromCI(d.ci)}</div>
+          </div>
+        `;
+      });
+
+      // 更新右上更新時間
+      const now = new Date();
+      const months = now.getMonth()+1;
+      const dates = now.getDate();
+      const daysArr = ["週日","週一","週二","週三","週四","週五","週六"];
+      document.getElementById('updateTime').textContent = `${months}月${dates}日 ${daysArr[now.getDay()]}`;
+    }
+
+    async function fetchWeather(){
+      document.getElementById('mainArea').style.display = 'none';
+      document.getElementById('loading').style.display = 'flex';
+      try{
+        const resp = await fetch(API_URL);
+        const json = await resp.json();
         if (!json.success) {
-          document.getElementById("result").innerHTML =
-            "❌ API 回傳錯誤：" + JSON.stringify(json);
-          return;
+          throw new Error("API 回傳非成功狀態");
         }
-
-        document.getElementById("result").innerHTML =
-          "<pre>" + JSON.stringify(json, null, 2) + "</pre>";
-      } catch (err) {
-        document.getElementById("result").innerHTML =
-          "❌ 讀取天氣失敗：" + err;
+        render(json);
+      }catch(e){
+        console.error(e);
+        alert("讀取天氣失敗：請確認後端伺服器與 API key 設定是否正確（檢查 CORS 與網域）");
+        document.getElementById('loading').style.display = 'none';
       }
     }
 
-    fetchWeather();
+    document.addEventListener("DOMContentLoaded", fetchWeather);
   </script>
 </body>
 </html>
