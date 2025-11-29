@@ -327,7 +327,7 @@
     </div>
 
     <script>
-        // API URL 更改為全臺天氣
+        // 將 API URL 更改為基礎路徑，縣市代碼將由前端動態拼接
         const BASE_API_URL = "https://cwaweather.zeabur.app/api/weather/";
         const cityMap = {
             "臺北市": "Taipei", "新北市": "NewTaipei", "桃園市": "Taoyuan", "臺中市": "Taichung",
@@ -340,29 +340,23 @@
         const allCities = Object.keys(cityMap);
         let currentCityName = "宜蘭縣";
 
+        // ... (其他輔助函式維持不變: getWeatherIcon, getAdvice, getTimePeriod) ...
+
         /**
          * 根據天氣描述回傳對應的 Icon
-         * @param {string} weather - 天氣狀況描述
-         * @returns {string} - 對應的 Icon 字元
          */
         function getWeatherIcon(weather) {
             if (!weather) return "🌤️";
-            if (weather.includes("晴")) return "🚴‍♂️"; // 晴天改為騎行者
+            if (weather.includes("晴")) return "🚴‍♂️";
             if (weather.includes("多雲")) return "⛅";
             if (weather.includes("陰")) return "☁️";
             if (weather.includes("雨")) return "🌧️";
-            if (weather.includes("雷")) return "⚡"; // 雷雨改為閃電
+            if (weather.includes("雷")) return "⚡"; 
             return "🌤️";
         }
 
         /**
          * 根據溫度、濕度、風速給出騎行建議
-         * @param {string} rainProb - 降雨機率
-         * @param {string} maxTemp - 最高溫
-         * @param {string} minTemp - 最低溫
-         * @param {string} humidity - 平均濕度 (CWA API 預設無此欄位，這裡使用一個 placeholder 邏輯)
-         * @param {number} windSpeed - 風速 (假定 API 有提供)
-         * @returns {{rainIcon: string, rainText: string, comfortIcon: string, comfortText: string, windIcon: string, windText: string}} - 建議物件
          */
         function getAdvice(rainProb, maxTemp, minTemp, humidity = 70, windSpeed = 3.5) {
             // 1. 降雨建議
@@ -417,31 +411,87 @@
             return "深夜";
         }
 
-        /**
-         * 渲染主要天氣資訊到 HTML
-         * @param {object} data - API 回傳的資料
-         */
+
         function renderWeather(data) {
-            const forecasts = data.forecasts;
-            if (!forecasts || forecasts.length === 0) {
+            // 由於後端直接回傳 CWA 的原始 JSON，我們需要從中解析出我們需要的預報資料。
+            // CWA 原始資料結構: data.records.locations[0].location[0].weatherElement
+            
+            // 判斷資料是否為 CWA 錯誤訊息
+            if (data.success === 'false') {
                 document.getElementById('loading').style.display = 'none';
                 document.getElementById('mainContent').style.display = 'block';
-                document.getElementById('heroCard').innerHTML = `<p style="text-align:center; color:${getComputedStyle(document.documentElement).getPropertyValue('--ac-cream')};">該地區暫無預報資料。</p>`;
+                document.getElementById('heroCard').innerHTML = `<p style="text-align:center; color:#FFFEF2; padding: 20px;">資料載入失敗：${data.message}</p>`;
                 document.getElementById('futureForecasts').innerHTML = '';
                 return;
             }
 
+            // 取得第一個鄉鎮的資料
+            const locationData = data.records.locations[0].location[0];
+            const weatherElements = locationData.weatherElement;
+            const forecasts = []; // 最終要儲存的格式
+
+            // 輔助函式：根據時間取得對應的氣象資料
+            const getElementValue = (elementName, time) => {
+                const element = weatherElements.find(e => e.elementName === elementName);
+                if (!element) return null;
+
+                const timeIndex = element.time.findIndex(t => t.startTime === time);
+                if (timeIndex !== -1) {
+                    const value = element.time[timeIndex].elementValue[0].value;
+                    const measure = element.time[timeIndex].elementValue[0].measures;
+                    return value + (measure ? measure : '');
+                }
+                return null;
+            };
+
+            // 氣溫 (MaxT/MinT) 預報的時間點是最準確的，以它為基準遍歷
+            const tempElement = weatherElements.find(e => e.elementName === 'MaxT');
+            if (!tempElement) return;
+
+            tempElement.time.forEach((timePeriod, index) => {
+                const startTime = timePeriod.startTime;
+                const endTime = timePeriod.endTime;
+                
+                // 由於 PoP、Wx 等是 6 或 12 小時，MaxT/MinT 是 3 小時，這裡需要更複雜的邏輯
+                // 為了簡化，我們只取第一個鄉鎮的資料，並以 MaxT/MinT 的 3 小時週期為主。
+
+                // 取得 MaxT, MinT, Wx, PoP6h/PoP12h 等
+                const maxT = getElementValue('MaxT', startTime) ? getElementValue('MaxT', startTime).replace('攝氏', '') : null;
+                const minT = getElementValue('MinT', startTime) ? getElementValue('MinT', startTime).replace('攝氏', '') : null;
+                const wxDesc = getElementValue('Wx', startTime) ? getElementValue('Wx', startTime) : '';
+                
+                // 嘗試抓 PoP12h (12小時降雨機率，適用未來較遠的預報) 或 PoP6h (6小時降雨機率)
+                let pop = getElementValue('PoP6h', startTime) || getElementValue('PoP12h', startTime);
+                if (!pop) pop = '0%';
+                
+                const windSpeed = getElementValue('WS', startTime) ? parseFloat(getElementValue('WS', startTime)) : 3.5; // 假設風速
+
+                if (maxT && minT) {
+                    forecasts.push({
+                        startTime: startTime,
+                        endTime: endTime,
+                        maxTemp: maxT,
+                        minTemp: minT,
+                        weather: wxDesc,
+                        rain: pop.replace('%', ''),
+                        windSpeed: windSpeed // 新增風速
+                    });
+                }
+            });
+
+            // 現在 forecasts 陣列已經包含了整理好的 3 小時預報資料
+            
             const current = forecasts[0];
             const others = forecasts.slice(1);
 
-            // 取得建議，風速給個假定值 4 m/s
-            const advice = getAdvice(current.rain, current.maxTemp, current.minTemp, 70, 4); 
+            // 1. 渲染 Hero Card (主畫面)
+            // 將風速傳入 getAdvice
+            const advice = getAdvice(current.rain, current.maxTemp, current.minTemp, 70, current.windSpeed); 
             const period = getTimePeriod(current.startTime);
             const avgTemp = Math.round((parseInt(current.maxTemp) + parseInt(current.minTemp)) / 2);
             const heroIcon = getWeatherIcon(current.weather);
             const lightningClass = heroIcon === '⚡' ? 'lightning' : '';
 
-            // 1. 渲染 Hero Card (主畫面)
             document.getElementById('heroCard').innerHTML = `
                 <div class="hero-card">
                     <div class="hero-period">${period}騎行建議</div>
@@ -460,12 +510,12 @@
                         <div class="advice-item">
                             <div class="advice-icon">${advice.rainIcon}</div>
                             <div class="advice-text">${advice.rainText}</div>
-                            <div style="font-size:0.7rem; color:#999">降雨率 ${current.rain}</div>
+                            <div style="font-size:0.7rem; color:#999">降雨率 ${current.rain}%</div>
                         </div>
                         <div class="advice-item">
                             <div class="advice-icon">${advice.windIcon}</div>
                             <div class="advice-text">${advice.windText}</div>
-                            <div style="font-size:0.7rem; color:#999">風速 ${advice.windSpeed}m/s</div>
+                            <div style="font-size:0.7rem; color:#999">風速 ${current.windSpeed}m/s</div>
                         </div>
                         <div class="advice-item">
                             <div class="advice-icon">🌡️</div>
@@ -476,7 +526,7 @@
                 </div>
             `;
 
-            // 2. 渲染稍後預報 (包含明天判斷)
+            // 2. 渲染稍後預報
             const scrollContainer = document.getElementById('futureForecasts');
             scrollContainer.innerHTML = '';
 
@@ -495,12 +545,12 @@
                         <div class="mini-time">${p}</div>
                         <div class="mini-icon">${miniIcon}</div>
                         <div class="mini-temp">${f.minTemp}° - ${f.maxTemp}°</div>
-                        <div style="font-size:0.8rem; color:#888; margin-top:5px;">💧${f.rain}</div>
+                        <div style="font-size:0.8rem; color:#888; margin-top:5px;">💧${f.rain}%</div>
                     </div>
                 `;
             });
 
-            // 3. 右上角顯示今日日期並更新地點
+            // 3. 右上角顯示今日日期
             const now = new Date();
             const month = now.getMonth() + 1;
             const date = now.getDate();
@@ -515,6 +565,7 @@
          * @param {string} cityCode - 縣市的英文代碼 (e.g., YilanCounty)
          */
         async function fetchWeather(cityCode) {
+            // *** 修正：路徑從固定 yilan 改為動態 cityCode ***
             const apiEndpoint = BASE_API_URL + cityCode;
             try {
                 // 顯示 Loading 畫面
@@ -525,25 +576,35 @@
                 const delayPromise = new Promise(resolve => setTimeout(resolve, 1500));
 
                 // 2. 定義「抓取資料」的工作
-                const fetchPromise = fetch(apiEndpoint).then(res => res.json());
+                const fetchPromise = fetch(apiEndpoint).then(res => {
+                    if (!res.ok) {
+                        // 處理 HTTP 錯誤 (e.g., 404, 500)
+                        throw new Error(`HTTP Error: ${res.status} - ${res.statusText}`);
+                    }
+                    return res.json();
+                });
 
                 // 3. Promise.all 會等待「兩個都完成」才會往下走
                 const [_, json] = await Promise.all([delayPromise, fetchPromise]);
 
-                if (json.success) {
-                    renderWeather(json.data);
+                // 由於後端回傳的是 CWA 原始 JSON，我們無法用單一 'success' 判斷，
+                // 但 CWA 成功的 JSON 會有 "records" 屬性。
+                if (json.records) { 
+                    renderWeather(json);
 
                     // 資料處理好後，隱藏 Loading，顯示主畫面
                     document.getElementById('loading').style.display = 'none';
                     document.getElementById('mainContent').style.display = 'block';
                 } else {
-                    throw new Error("API Error: " + json.message);
+                    // 假設是後端代理服務的錯誤 (例如 CWA API Key 無效)
+                    throw new Error(json.message || "API Error: 無法解析 CWA 資料");
                 }
             } catch (e) {
                 console.error(e);
-                alert(`天氣資料讀取失敗！請檢查 API 或縣市名稱: ${currentCityName}`);
+                alert(`天氣資料讀取失敗！請檢查 API 或縣市名稱: ${currentCityName}\n錯誤細節: ${e.message}`);
                 // 讀取失敗也應該隱藏 Loading
                 document.getElementById('loading').style.display = 'none';
+                document.getElementById('mainContent').style.display = 'block';
             }
         }
 
@@ -553,16 +614,19 @@
         function initializeCitySelect() {
             const select = document.getElementById('citySelect');
             let optionsHtml = '';
+            
+            // 將中文縣市名稱反向對應到英文代碼，並在 <option> 中設定 value
             allCities.forEach(cityName => {
+                const cityCode = cityMap[cityName];
                 const selected = cityName === currentCityName ? 'selected' : '';
-                optionsHtml += `<option value="${cityMap[cityName]}" ${selected}>${cityName}</option>`;
+                optionsHtml += `<option value="${cityCode}" ${selected}>${cityName}</option>`;
             });
             select.innerHTML = optionsHtml;
 
             select.addEventListener('change', (event) => {
                 const newCityCode = event.target.value;
+                // 找到對應的中文名稱來更新 Pill
                 currentCityName = allCities.find(key => cityMap[key] === newCityCode);
-                // 更新地點 Pill 的文字
                 document.querySelector('.location-pill').textContent = `🚴 ${currentCityName}`;
                 fetchWeather(newCityCode);
             });
@@ -573,9 +637,9 @@
             initializeCitySelect();
             // 預設載入宜蘭縣的天氣
             fetchWeather(cityMap[currentCityName]);
-            // 更新地點 Pill 的文字
             document.querySelector('.location-pill').textContent = `🚴 ${currentCityName}`;
         });
+    </script>
     </script>
 </body>
 
