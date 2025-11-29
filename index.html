@@ -4,8 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>單車追風天氣 🚴‍♂️ (宜蘭限定)</title>
-    <link rel="icon" type="image/png" href="./icon-v2.png">
+    <title>單車追風天氣 🚴‍♂️ (宜蘭限定)</title> <link rel="icon" type="image/png" href="./icon-v2.png">
     <link rel="apple-touch-icon" href="./icon-v2.png">
     <link rel="apple-touch-icon" sizes="180x180" href="./icon-v2.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -315,12 +314,10 @@
     </div>
 
     <script>
-        // *** 修正：硬編碼宜蘭縣的 API 資訊 ***
+        // *** 修正：硬編碼宜蘭縣的 API 資訊，移除 cityMap 和 allCities ***
         const BASE_API_URL = "https://cwaweather.zeabur.app/api/weather/";
         const YILAN_CODE = "YilanCounty";
         const currentCityName = "宜蘭縣"; // 僅用於顯示
-
-        // ... (getWeatherIcon, getAdvice, getTimePeriod 函式維持不變) ...
 
         /**
          * 根據天氣描述回傳對應的 Icon
@@ -432,7 +429,9 @@
                     
                     const value = valueObj.value;
                     const measure = valueObj.measures;
-                    return value + (measure ? measure : '');
+                    // 替換掉可能存在的 '攝氏' 單位
+                    const cleanedValue = value.replace('攝氏', ''); 
+                    return cleanedValue + (measure ? measure : '');
                 }
                 return null;
             };
@@ -452,9 +451,9 @@
             tempElement.time.forEach((timePeriod, index) => {
                 const startTime = timePeriod.startTime;
                 
-                // 取得 MaxT, MinT, Wx, PoP6h/PoP12h 等
-                const maxT = getElementValue('MaxT', startTime) ? getElementValue('MaxT', startTime).replace('攝氏', '') : null;
-                const minT = getElementValue('MinT', startTime) ? getElementValue('MinT', startTime).replace('攝氏', '') : null;
+                // 取得 MaxT, MinT, Wx, PoP6h/PoP12h 等 (已在 getElementValue 中處理 '攝氏')
+                const maxT = getElementValue('MaxT', startTime);
+                const minT = getElementValue('MinT', startTime);
                 const wxDesc = getElementValue('Wx', startTime) ? getElementValue('Wx', startTime) : '';
                 
                 // 嘗試抓 PoP12h (12小時降雨機率) 或 PoP6h (6小時降雨機率)
@@ -511,4 +510,121 @@
                     
                     <div class="advice-grid">
                         <div class="advice-item">
-                            <div class="
+                            <div class="advice-icon">${advice.comfortIcon}</div>
+                            <div class="advice-text">${advice.comfortText}</div>
+                            <div style="font-size:0.7rem; color:#999">均溫 ${avgTemp}°</div>
+                        </div>
+                        <div class="advice-item">
+                            <div class="advice-icon">${advice.rainIcon}</div>
+                            <div class="advice-text">${advice.rainText}</div>
+                            <div style="font-size:0.7rem; color:#999">降雨率 ${current.rain}%</div>
+                        </div>
+                        <div class="advice-item">
+                            <div class="advice-icon">${advice.windIcon}</div>
+                            <div class="advice-text">${advice.windText}</div>
+                            <div style="font-size:0.7rem; color:#999">風速 ${current.windSpeed}m/s</div>
+                        </div>
+                        <div class="advice-item">
+                            <div class="advice-icon">🌡️</div>
+                            <div class="advice-text">溫差範圍</div>
+                            <div style="font-size:0.7rem; color:#999">${current.minTemp}° ~ ${current.maxTemp}°</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            // 2. 渲染稍後預報
+            const scrollContainer = document.getElementById('futureForecasts');
+            scrollContainer.innerHTML = '';
+
+            const todayDate = new Date().getDate();
+
+            others.forEach(f => {
+                let p = getTimePeriod(f.startTime);
+                const fDate = new Date(f.startTime);
+                if (fDate.getDate() !== todayDate) {
+                    p = "明天" + p;
+                }
+                const miniIcon = getWeatherIcon(f.weather);
+
+                scrollContainer.innerHTML += `
+                    <div class="mini-card">
+                        <div class="mini-time">${p}</div>
+                        <div class="mini-icon">${miniIcon}</div>
+                        <div class="mini-temp">${f.minTemp}° - ${f.maxTemp}°</div>
+                        <div style="font-size:0.8rem; color:#888; margin-top:5px;">💧${f.rain}%</div>
+                    </div>
+                `;
+            });
+
+            // 3. 右上角顯示今日日期
+            const now = new Date();
+            const month = now.getMonth() + 1;
+            const date = now.getDate();
+            const dayIndex = now.getDay();
+            const days = ["週日", "週一", "週二", "週三", "週四", "週五", "週六"];
+
+            document.getElementById('updateTime').textContent = `${month}月${date}日 ${days[dayIndex]}`;
+        }
+
+        /**
+         * 抓取指定縣市的天氣資料 (已移除 alert 彈窗)
+         * @param {string} cityCode - 縣市的英文代碼 (e.g., YilanCounty)
+         */
+        async function fetchWeather(cityCode) {
+            const apiEndpoint = BASE_API_URL + cityCode;
+            try {
+                // 顯示 Loading 畫面
+                document.getElementById('loading').style.display = 'flex';
+                document.getElementById('mainContent').style.display = 'none';
+
+                // 1. 定義「最低等待時間」：1500 毫秒 (1.5秒)
+                const delayPromise = new Promise(resolve => setTimeout(resolve, 1500));
+
+                // 2. 定義「抓取資料」的工作
+                const fetchPromise = fetch(apiEndpoint).then(res => {
+                    if (!res.ok) {
+                        // 處理 HTTP 錯誤 (e.g., 404, 500)
+                        throw new Error(`HTTP Error: ${res.status} - ${res.statusText}`);
+                    }
+                    return res.json();
+                });
+
+                // 3. Promise.all 會等待「兩個都完成」才會往下走
+                const [_, json] = await Promise.all([delayPromise, fetchPromise]);
+
+                // 檢查 CWA 原始資料結構中是否存在 records 屬性
+                if (json.records) { 
+                    renderWeather(json);
+                    
+                    document.getElementById('loading').style.display = 'none';
+                    document.getElementById('mainContent').style.display = 'block';
+                } else if (json.error) {
+                    // 檢查後端是否回傳了帶有錯誤訊息的 JSON (例如 server.js 的錯誤處理)
+                     throw new Error(json.message || "API Error: 後端代理服務回傳錯誤");
+                } else {
+                     // 處理無法預期的 JSON 格式
+                    throw new Error("API Error: 無法解析 CWA 資料");
+                }
+            } catch (e) {
+                console.error(e);
+                // *** 修正：將錯誤訊息直接顯示在畫面上的 heroCard 內，取代 alert ***
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('mainContent').style.display = 'block';
+                 document.getElementById('heroCard').innerHTML = `<p style="text-align:center; color:#FFFEF2; padding: 20px;">
+                    🚫 資料讀取失敗。請確認後端服務是否運行且 API Key 有效。<br>錯誤: ${e.message}
+                </p>`;
+                document.getElementById('futureForecasts').innerHTML = '';
+            }
+        }
+
+
+        document.addEventListener("DOMContentLoaded", () => {
+            // *** 修正：直接呼叫宜蘭縣的 API ***
+            fetchWeather(YILAN_CODE);
+            // initializeCitySelect 函式已移除
+        });
+    </script>
+</body>
+
+</html>
