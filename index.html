@@ -414,16 +414,17 @@
             // 由於後端直接回傳 CWA 的原始 JSON，我們需要從中解析出我們需要的預報資料。
             
             // 1. **核心安全檢查** (防止 Cannot read properties of undefined 錯誤)
-            if (!data.records || !data.records.locations || data.records.locations.length === 0 || 
+            if (!data || !data.records || !data.records.locations || data.records.locations.length === 0 || 
                 !data.records.locations[0].location || data.records.locations[0].location.length === 0) 
             {
                 document.getElementById('loading').style.display = 'none';
                 document.getElementById('mainContent').style.display = 'block';
                 // 顯示更精確的錯誤訊息
                 document.getElementById('heroCard').innerHTML = `<p style="text-align:center; color:#FFFEF2; padding: 20px;">
-                    ⚠️ 資料結構異常！該地區暫無預報資料，或後端API回傳錯誤。
+                    ⚠️ 資料結構異常！該地區暫無可用的預報資料，或後端API回傳錯誤。
                 </p>`;
                 document.getElementById('futureForecasts').innerHTML = '';
+                console.error("CWA資料結構不完整或無預報資料", data);
                 return;
             }
 
@@ -439,8 +440,9 @@
 
                 const timeIndex = element.time.findIndex(t => t.startTime === time);
                 if (timeIndex !== -1) {
+                    const timeEntry = element.time[timeIndex];
                     // 檢查 elementValue 陣列是否為空
-                    const elementValues = element.time[timeIndex].elementValue;
+                    const elementValues = timeEntry.elementValue;
                     if (!elementValues || elementValues.length === 0) return null;
                     
                     const valueObj = elementValues[0]; // 安全取用 elementValue[0]
@@ -467,7 +469,6 @@
 
             tempElement.time.forEach((timePeriod, index) => {
                 const startTime = timePeriod.startTime;
-                const endTime = timePeriod.endTime;
                 
                 // 取得 MaxT, MinT, Wx, PoP6h/PoP12h 等
                 const maxT = getElementValue('MaxT', startTime) ? getElementValue('MaxT', startTime).replace('攝氏', '') : null;
@@ -485,7 +486,6 @@
                 if (maxT && minT) {
                     forecasts.push({
                         startTime: startTime,
-                        endTime: endTime,
                         maxTemp: maxT,
                         minTemp: minT,
                         weather: wxDesc,
@@ -627,7 +627,7 @@
                 }
             } catch (e) {
                 console.error(e);
-                // 使用 console.error 而非 alert，因為 alert 會阻擋 UI 顯示錯誤
+                // 讀取失敗後，在頁面顯示錯誤訊息，而非彈窗
                 document.getElementById('loading').style.display = 'none';
                 document.getElementById('mainContent').style.display = 'block';
                  document.getElementById('heroCard').innerHTML = `<p style="text-align:center; color:#FFFEF2; padding: 20px;">
