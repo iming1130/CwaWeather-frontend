@@ -8,6 +8,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;700;900&display=swap" rel="stylesheet">
 
   <style>
+    /* 所有的 CSS 樣式代碼保持不變 */
     :root{
       --vivid-blue: #4FB5D9; /* 活力藍 */
       --sun-yellow: #F9F195; /* 陽光黃 */
@@ -58,6 +59,7 @@
       gap:8px;
       align-items:center;
       font-size:1rem;
+      min-width: 150px; /* 確保有足夠空間顯示地點 */
     }
     .update-pill{
       background:var(--vivid-blue);
@@ -68,6 +70,18 @@
       box-shadow:0 3px 0 rgba(0,0,0,0.08);
       font-size:0.9rem;
     }
+    /* 修正下拉選單樣式 */
+    #town-select{
+        padding: 8px 10px;
+        border-radius: 12px;
+        border: 2px solid var(--vivid-blue);
+        background: white;
+        font-family:'Zen Maru Gothic',sans-serif;
+        font-weight: 700;
+        color: var(--dark);
+        margin-left: 10px;
+    }
+
 
     /* hero card */
     .hero-card{
@@ -199,7 +213,23 @@
   <div class="container">
     <div class="status-bar">
       <div class="brand">
-        <div class="logo-pill">🚴 單車追風 · 宜蘭</div>
+        <div class="logo-pill" id="logoPill">🚴 單車追風 · 宜蘭市</div> 
+      </div>
+      <div id="select-container">
+        <select id="town-select" onchange="fetchWeather()">
+          <option value="宜蘭市">宜蘭市</option>
+          <option value="羅東鎮">羅東鎮</option>
+          <option value="蘇澳鎮">蘇澳鎮</option>
+          <option value="頭城鎮">頭城鎮</option>
+          <option value="礁溪鄉">礁溪鄉</option>
+          <option value="壯圍鄉">壯圍鄉</option>
+          <option value="員山鄉">員山鄉</option>
+          <option value="冬山鄉">冬山鄉</option>
+          <option value="五結鄉">五結鄉</option>
+          <option value="三星鄉">三星鄉</option>
+          <option value="大同鄉">大同鄉</option>
+          <option value="南澳鄉">南澳鄉</option>
+        </select>
       </div>
       <div id="updateTime" class="update-pill">更新中...</div>
     </div>
@@ -208,32 +238,32 @@
       <div id="hero" class="hero-card" aria-live="polite">
         <div class="hero-tag">週末騎行建議</div>
         <div id="heroContent" class="hero-top">
-          <!-- 由 JS 填入 -->
-        </div>
+          </div>
         <div id="heroDesc" class="hero-desc"></div>
 
         <div class="advice-grid" id="adviceGrid">
-          <!-- 由 JS 填入 -->
-        </div>
+          </div>
       </div>
 
       <div>
-        <h3 class="section-title">一週預報（宜蘭縣）</h3>
+        <h3 class="section-title">一週預報（<span id="forecastTown">宜蘭市</span>）</h3>
         <div class="scroll-row" id="weekRow">
-          <!-- 由 JS 填入 -->
-        </div>
+          </div>
       </div>
     </div>
 
-    <div id="loading" class="loading" style="display:none;">
+    <div id="loading" class="loading" style="display:flex;">
       <div style="font-size:3.8rem">🚴‍♀️</div>
       <div style="margin-top:12px">正在為你偵測風向與坡度，準備出發…</div>
     </div>
   </div>
 
   <script>
-    // API_URL：如在本地測試請改為 http://localhost:3000/api/weather/yilan
-    const API_URL = "https://cwaweather.zeabur.app/api/weather/yilan";
+    // 判斷當前環境，自動切換 API 網址，並將預設鄉鎮設為宜蘭市
+    const BASE_API_URL = 
+      location.hostname === "localhost" || location.hostname === "127.0.0.1"
+        ? "http://localhost:3000/api/weather/yilan"
+        : "https://cwaweather.zeabur.app/api/weather/yilan";
 
     function parseNumberFromString(s){
       if (!s) return null;
@@ -241,10 +271,9 @@
       return m ? Number(m[0]) : null;
     }
 
+    // ... (其他輔助函式保持不變，略過)
     function windLevelText(wsValue){
-      // 若 wsValue 是節或 m/s，嘗試解析數字
       const n = parseNumberFromString(wsValue);
-      // 這裡用簡化的分級：0-3 微風、4-6 中風、7+ 強風
       if (n === null) return "—";
       if (n <= 3) return "微風 (適合騎行)";
       if (n <= 6) return "有感風速 (小心側風)";
@@ -253,7 +282,7 @@
 
     function pickIconFromWx(wx){
       if (!wx) return "🚴‍♂️";
-      if (wx.includes("晴")) return "🚴‍♂️"; // 以騎車 emoji 取代晴
+      if (wx.includes("晴")) return "🚴‍♂️";
       if (wx.includes("多雲")) return "🌥️";
       if (wx.includes("陰")) return "☁️";
       if (wx.includes("雷")) return '<span class="thunder">⚡</span>';
@@ -291,6 +320,7 @@
       return `${d.getMonth()+1}/${d.getDate()} ${days[d.getDay()]}`;
     }
 
+
     function render(data){
       if (!data || !data.forecasts) {
         alert("天氣資料格式錯誤");
@@ -300,9 +330,13 @@
       document.getElementById('mainArea').style.display = 'block';
 
       const forecasts = data.forecasts;
+      const currentCity = data.city || '宜蘭市'; // 從後端回傳的 city 名稱
 
-      // 以每日第一個 time slot 當作該日代表（F-C0032-003 通常為日間分段）
-      // 我們做一個簡單的「按日期分群」，取每天的第一筆當摘要
+      // 更新頁面標題與地點顯示
+      document.getElementById('logoPill').textContent = `🚴 單車追風 · ${currentCity}`;
+      document.getElementById('forecastTown').textContent = currentCity;
+      
+      // 以每日第一個 time slot 當作該日代表 (F-D0047-003 通常為日間分段)
       const byDate = {};
       forecasts.forEach(f => {
         const dKey = f.startTime ? (new Date(f.startTime)).toDateString() : f.startTime;
@@ -375,20 +409,33 @@
     async function fetchWeather(){
       document.getElementById('mainArea').style.display = 'none';
       document.getElementById('loading').style.display = 'flex';
+      
+      // 1. 取得選擇的鄉鎮名稱
+      const selectElement = document.getElementById('town-select');
+      // 如果選單不存在或無值，預設為「宜蘭市」
+      const selectedTown = selectElement ? selectElement.value : '宜蘭市'; 
+      
+      // 2. 建構動態 API URL: BASE_API_URL/鄉鎮名稱
+      const API_URL = `${BASE_API_URL}/${selectedTown}`;
+      
       try{
         const resp = await fetch(API_URL);
         const json = await resp.json();
+        
+        // 檢查 json.success (後端 server.js 會明確回傳 success: true 或 false)
         if (!json.success) {
-          throw new Error("API 回傳非成功狀態");
+          throw new Error(`API 回傳錯誤：${json.message || json.error || '未知錯誤'}`);
         }
+        
         render(json);
       }catch(e){
         console.error(e);
-        alert("讀取天氣失敗：請確認後端伺服器與 API key 設定是否正確（檢查 CORS 與網域）");
+        alert(`讀取 ${selectedTown} 天氣失敗：${e.message}。請確認後端伺服器與 API key 設定是否正確（檢查 CORS 與網域）`);
         document.getElementById('loading').style.display = 'none';
       }
     }
 
+    // 頁面載入時，立即執行查詢 (預設是「宜蘭市」)
     document.addEventListener("DOMContentLoaded", fetchWeather);
   </script>
 </body>
