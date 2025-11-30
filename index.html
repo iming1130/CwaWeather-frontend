@@ -20,9 +20,9 @@
             /* 單車風格配色 (科技藍、高亮黃) */
             --bike-blue: #2D72D9;   /* 主題藍色 (專業、天空) */
             --bike-yellow: #FFC72C; /* 強調黃色 (警示、高可視性) */
-            --bike-gray: #4B4B4B;   /* 主要文字深色 */
-            --bike-light: #F8F9FA;  /* 卡片背景淺色 */
-            --bike-border: #CED4DA; /* 邊框/分隔線 */
+            --bike-gray: #9d3d3d;   /* 主要文字深色 */
+            --bike-light: #d8f6f9;  /* 卡片背景淺色 */
+            --bike-border: #95c9fc; /* 邊框/分隔線 */
             --bike-bg-pattern: #E9ECEF; /* 簡潔背景灰 */
         }
 
@@ -36,23 +36,34 @@
         body {
             font-family: 'Zen Maru Gothic', sans-serif;
             background-color: var(--bike-light);
-            /* 簡潔的斜線紋理，模擬柏油路或速度感 */
-            background-image: repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(0, 0, 0, 0.05) 10px, rgba(0, 0, 0, 0.05) 20px);
+            /* [修正]：疊加兩個背景層 (腳踏車紋理 + 斜線紋理) */
+            background-image: 
+                /* 1. 腳踏車圖案 (輕微透明度 0.1) */
+                url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewport="0 0 100 100" style="font-size:20px;"><text opacity="0.1" y="20">🚲</text></svg>'),
+                /* 2. 原有的斜線紋理 */
+                repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(0, 0, 0, 0.05) 10px, rgba(0, 0, 0, 0.05) 20px);
+            background-repeat: repeat, repeat;
+            background-position: 15px 15px, 0 0; 
+            
             min-height: 100vh;
             color: var(--bike-gray);
             overflow-x: hidden;
             padding-bottom: 20px;
+            /* [保留]：滑鼠樣式改為腳踏車 */
+            cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewport="0 0 100 100" style="font-size:30px;"><text y="25">🚲</text></svg>') 15 15, auto;
         }
 
         /* =========================== */
         /* === 2. 頂部狀態列 (專業化) === */
         /* =========================== */
         .status-bar {
+            /* [保留]：垂直堆疊並置中 */
             display: flex;
-            justify-content: space-between;
+            flex-direction: column;
+            justify-content: center;
             align-items: center;
-            padding: 15px 20px;
-            background: white; /* 純白背景更簡潔 */
+            padding: 15px 20px 10px 20px; 
+            background: white; 
             border-bottom: 1px solid var(--bike-border);
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
             position: sticky;
@@ -64,19 +75,22 @@
             background: var(--bike-blue);
             color: white;
             padding: 6px 15px;
-            border-radius: 4px; /* 方正簡潔 */
+            border-radius: 4px; 
             font-weight: 700;
-            font-size: 1.1rem;
+            /* [保留]：標題字體放大 */
+            font-size: 1.5rem;
             transform: none; 
             border: none;
             box-shadow: 0 2px 0 rgba(0, 0, 0, 0.1);
+            margin-bottom: 8px; 
         }
 
         .update-pill {
-            font-size: 0.9rem;
+            /* [保留]：日期/時間字體放大 */
+            font-size: 1.1rem;
             color: var(--bike-gray);
-            background: var(--bike-bg-pattern);
-            padding: 4px 10px;
+            background: none; 
+            padding: 0;
             border-radius: 4px;
             font-weight: 400;
         }
@@ -91,9 +105,9 @@
         /* === 3. 核心：今日焦點卡片 (儀表板) === */
         /* =================================== */
         .hero-card {
-            background: white; /* 內層純白 */
-            border-radius: 12px; /* 略微圓角 */
-            padding: 30px 25px;
+            background: white; 
+            border-radius: 12px; 
+            padding: 30px 25px 25px 25px;
             text-align: center;
             box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
             border: 2px solid var(--bike-border);
@@ -107,7 +121,7 @@
             top: 0;
             left: 0;
             transform: translateY(-50%);
-            background: var(--bike-yellow); /* 高亮黃強調 */
+            background: var(--bike-yellow); 
             color: var(--bike-gray);
             padding: 4px 15px;
             border-radius: 0 4px 4px 0;
@@ -118,31 +132,71 @@
         }
 
         .hero-temp-container {
+            /* [保留]：調整排版為左右分佈 */
             display: flex;
-            justify-content: center;
-            align-items: center;
+            justify-content: space-between;
+            align-items: flex-start;
             gap: 15px;
-            margin: 15px 0;
+            margin: 10px 0 20px 0;
+        }
+        
+        /* 主溫度區塊 */
+        .temp-main {
+            display: flex;
+            align-items: center;
         }
 
         .hero-icon {
-            font-size: 4.5rem; 
+            /* [保留]：縮小圖示 */
+            font-size: 3.5rem; 
             filter: drop-shadow(0 2px 0 rgba(0, 0, 0, 0.05));
-            animation: none; /* 移除彈跳動畫 */
+            animation: none;
+            margin-right: 15px; 
         }
 
         .hero-temp {
-            font-size: 5rem; /* 更大更吸睛 */
+            /* [保留]：溫度略微縮小 */
+            font-size: 4.5rem;
             font-weight: 900;
-            color: var(--bike-blue); /* 藍色強調溫度 */
+            color: var(--bike-blue); 
             line-height: 1;
         }
 
-        .hero-desc {
-            font-size: 1.3rem;
-            color: var(--bike-gray);
-            margin-bottom: 20px;
+        /* 體感溫度/高低溫標籤 */
+        .temp-label {
+            font-size: 1.1rem;
             font-weight: 700;
+            line-height: 1;
+            color: var(--bike-gray);
+            text-align: left;
+        }
+
+        /* 細節數據區 */
+        .data-details {
+            display: flex;
+            flex-direction: column;
+            text-align: right;
+            font-size: 0.95rem;
+            color: var(--bike-gray);
+            padding-top: 5px; 
+            line-height: 1.5;
+            font-weight: 700;
+        }
+
+        .data-details span {
+            font-weight: 400;
+            color: #6c478d;
+        }
+
+        .hero-desc {
+            /* [保留]：放大詳細天氣描述字體 */
+            font-size: 1.3rem; 
+            color: var(--bike-blue); 
+            margin-bottom: 15px; 
+            font-weight: 700;
+            text-align: center;
+            border-bottom: 1px dashed var(--bike-border); 
+            padding-bottom: 15px;
         }
 
         /* === 4. 騎行建議區 === */
@@ -160,22 +214,32 @@
             flex-direction: column;
             align-items: center;
             background: var(--bike-light); 
-            padding: 10px;
+            /* [保留]：增加內部間距 */
+            padding: 12px;
             border-radius: 6px;
             border: 1px solid var(--bike-border);
+            transition: all 0.3s;
         }
 
         .advice-icon {
-            font-size: 2rem;
+            /* [保留]：放大圖示 */
+            font-size: 2.5rem;
             margin-bottom: 5px;
         }
 
         .advice-text {
-            font-size: 1.1rem; 
+            /* [保留]：放大建議文字 */
+            font-size: 1.2rem; 
             font-weight: 900;
             color: var(--bike-gray);
             margin: 3px 0;
             line-height: 1.2;
+        }
+
+        /* 警示色樣式 */
+        .advice-item.alert {
+            border: 2px solid var(--bike-yellow);
+            background: #fffbe6; /* 淺黃色背景 */
         }
 
         /* ============================== */
@@ -224,6 +288,15 @@
             margin-bottom: 8px;
             font-weight: 700;
         }
+        
+        /* [保留]：給 Hero Card 時段範圍的樣式 */
+        .period-time-range {
+            font-size: 1rem; 
+            font-weight: 700; 
+            color: var(--bike-blue); 
+            margin-bottom: 25px; 
+            margin-top: -10px; /* 稍微往上拉，靠近描述 */
+        }
 
         .mini-icon {
             font-size: 2rem;
@@ -269,8 +342,10 @@
 <body>
     <div id="loading" class="loading-screen">
         <div style="font-size: 4rem; animation: bounce 2s infinite;">🚲</div> <p style="color: white; font-weight: bold; margin-top: 20px;">正在計算最佳路線與天氣...</p> </div>
+    
     <div class="status-bar">
-        <div class="location-pill">📍 宜蘭</div>
+        <div class="location-pill">🚴 宜蘭追風</div>
+        <div id="currentTime" class="update-pill" style="margin-bottom: 5px; font-weight: 700;">載入中...</div>
         <div id="updateTime" class="update-pill">更新中...</div>
     </div>
 
@@ -319,15 +394,42 @@
             return { rainIcon, rainText, clothIcon, clothText };
         }
 
-        // 調整為單車時段術語
+        // [保留]：修改 getTimePeriod 函式，返回時段名稱和時間範圍
         function getTimePeriod(startTime) {
             const hour = new Date(startTime).getHours();
-            if (hour >= 5 && hour < 9) return "晨騎時段";
-            if (hour >= 9 && hour < 12) return "上午時段";
-            if (hour >= 12 && hour < 14) return "午餐補給";
-            if (hour >= 14 && hour < 18) return "下午衝刺";
-            if (hour >= 18 && hour < 23) return "夜騎時段";
-            return "休息時段";
+            let name, timeRange;
+
+            if (hour >= 5 && hour < 9) {
+                name = "晨騎時段";
+                timeRange = "05:00 - 09:00";
+            } else if (hour >= 9 && hour < 12) {
+                name = "上午時段";
+                timeRange = "09:00 - 12:00";
+            } else if (hour >= 12 && hour < 14) {
+                name = "午餐補給";
+                timeRange = "12:00 - 14:00";
+            } else if (hour >= 14 && hour < 18) {
+                name = "下午衝刺";
+                timeRange = "14:00 - 18:00";
+            } else if (hour >= 18 && hour < 23) {
+                name = "夜騎時段";
+                timeRange = "18:00 - 23:00";
+            } else {
+                name = "休息時段";
+                timeRange = "23:00 - 05:00";
+            }
+            
+            return { name, timeRange };
+        }
+
+        // [保留]：實時更新現在時間的函式
+        function updateCurrentTime() {
+            const now = new Date();
+            const timeString = now.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            const currentTimeElement = document.getElementById('currentTime');
+            if (currentTimeElement) {
+                currentTimeElement.textContent = timeString;
+            }
         }
 
         function renderWeather(data) {
@@ -335,34 +437,57 @@
             const current = forecasts[0];
             const others = forecasts.slice(1);
 
-            // 1. 渲染 Hero Card (主畫面)
-            const advice = getAdvice(current.rain, current.maxTemp);
-            const period = getTimePeriod(current.startTime);
-            const avgTemp = Math.round((parseInt(current.maxTemp) + parseInt(current.minTemp)) / 2);
+            // 模擬 CWA API 中通常會提供的風速和濕度數據
+            const wind = "3 m/s"; 
+            const humidity = "65%";
+            const rainProb = parseInt(current.rain);
+            const maxTemp = parseInt(current.maxTemp);
+            
+            // 根據條件判斷是否要添加警示 class
+            const rainAlertClass = rainProb > 30 ? 'alert' : '';
+            const tempAlertClass = maxTemp >= 28 || maxTemp <= 20 ? 'alert' : '';
 
+            // [保留]：獲取時段名稱和時間範圍
+            const periodData = getTimePeriod(current.startTime);
+            const advice = getAdvice(rainProb, maxTemp);
+            const avgTemp = Math.round((maxTemp + parseInt(current.minTemp)) / 2);
+
+            // 1. 渲染 Hero Card (主畫面)
             document.getElementById('heroCard').innerHTML = `
-                        <div class="hero-card">
-                            <div class="hero-period">${period}</div>
-                            <div class="hero-temp-container">
-                                <div class="hero-icon">${getWeatherIcon(current.weather)}</div>
+                <div class="hero-card">
+                    <div class="hero-period">${periodData.name}</div>
+                    <div class="hero-temp-container">
+                        <div class="temp-main">
+                            <div class="hero-icon">${getWeatherIcon(current.weather)}</div>
+                            <div>
                                 <div class="hero-temp">${avgTemp}°</div>
-                            </div>
-                            <div class="hero-desc">${current.weather}</div>
-                            
-                            <div class="advice-grid">
-                                <div class="advice-item">
-                                    <div class="advice-icon">${advice.rainIcon}</div>
-                                    <div class="advice-text">${advice.rainText}</div>
-                                    <div style="font-size:0.7rem; color:#999">降雨機率 ${current.rain}</div>
-                                </div>
-                                <div class="advice-item">
-                                    <div class="advice-icon">${advice.clothIcon}</div>
-                                    <div class="advice-text">${advice.clothText}</div>
-                                    <div style="font-size:0.7rem; color:#999">最高溫 ${current.maxTemp}°</div>
-                                </div>
+                                <div class="temp-label">體感 ${current.maxTemp}° / ${current.minTemp}°</div>
                             </div>
                         </div>
-                    `;
+                        <div class="data-details">
+                            <div>最大風速 <span>${wind}</span></div>
+                            <div>濕度 <span>${humidity}</span></div>
+                        </div>
+                    </div>
+                    
+                    <div class="hero-desc">${current.weather}</div>
+                    
+                    <div class="period-time-range">時段範圍：${periodData.timeRange}</div>
+                    
+                    <div class="advice-grid">
+                        <div class="advice-item ${rainAlertClass}">
+                            <div class="advice-icon">${advice.rainIcon}</div>
+                            <div class="advice-text">${advice.rainText}</div>
+                            <div style="font-size:0.8rem; color:#999">降雨機率 ${current.rain}</div>
+                        </div>
+                        <div class="advice-item ${tempAlertClass}">
+                            <div class="advice-icon">${advice.clothIcon}</div>
+                            <div class="advice-text">${advice.clothText}</div>
+                            <div style="font-size:0.8rem; color:#999">最高溫 ${current.maxTemp}°</div>
+                        </div>
+                    </div>
+                </div>
+            `;
 
             // 2. 渲染稍後預報 (包含明天判斷)
             const scrollContainer = document.getElementById('futureForecasts');
@@ -371,16 +496,19 @@
             const todayDate = new Date().getDate();
 
             others.forEach(f => {
-                let p = getTimePeriod(f.startTime);
+                let pData = getTimePeriod(f.startTime);
 
                 const fDate = new Date(f.startTime);
                 if (fDate.getDate() !== todayDate) {
-                    p = "明日 " + p.replace('時段', ''); 
+                    // [保留]：更新時段名稱，但保留時間範圍
+                    pData.name = "明日 " + pData.name.replace('時段', ''); 
                 }
 
+                // [保留]：在 mini-card 中加入時間範圍
                 scrollContainer.innerHTML += `
                             <div class="mini-card">
-                                <div class="mini-time">${p}</div>
+                                <div class="mini-time">${pData.name}</div>
+                                <div style="font-size:0.75rem; color:#6c757d; font-weight: 400; margin-bottom: 5px;">${pData.timeRange}</div>
                                 <div class="mini-icon">${getWeatherIcon(f.weather)}</div>
                                 <div class="mini-temp">${f.minTemp}° - ${f.maxTemp}°</div>
                                 <div style="font-size:0.8rem; color:#888; margin-top:5px;">💧${f.rain}</div>
@@ -424,7 +552,14 @@
             }
         }
 
-        document.addEventListener("DOMContentLoaded", fetchWeather);
+        // 啟動時間更新和天氣資料抓取
+        document.addEventListener("DOMContentLoaded", () => {
+            updateCurrentTime();
+            // 每秒更新一次現在時間
+            setInterval(updateCurrentTime, 1000); 
+
+            fetchWeather();
+        });
     </script>
 </body>
 
