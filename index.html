@@ -20,9 +20,9 @@
             /* 單車風格配色 (科技藍、高亮黃) */
             --bike-blue: #2D72D9;   /* 主題藍色 (專業、天空) */
             --bike-yellow: #FFC72C; /* 強調黃色 (警示、高可視性) */
-            --bike-gray: #9d3d3d;   /* 主要文字深色 */
-            --bike-light: #d8f6f9;  /* 卡片背景淺色 */
-            --bike-border: #95c9fc; /* 邊框/分隔線 */
+            --bike-gray: #4B4B4B;   /* 主要文字深色 */
+            --bike-light: #e4fdeb;  /* 卡片背景淺色 */
+            --bike-border: #CED4DA; /* 邊框/分隔線 */
             --bike-bg-pattern: #E9ECEF; /* 簡潔背景灰 */
         }
 
@@ -36,20 +36,49 @@
         body {
             font-family: 'Zen Maru Gothic', sans-serif;
             background-color: var(--bike-light);
-            /* [修正]：疊加兩個背景層 (腳踏車紋理 + 斜線紋理) */
+            
+            /* [修正]：設置 32 個大腳踏車圖案 (4x8 交錯網格) */
+            /* 腳踏車 SVG：font-size:80px, opacity:0.05 */
+            --bike-svg: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" style="font-size:80px;"><text opacity="0.05" y="80">🚲</text></svg>');
+
             background-image: 
-                /* 1. 腳踏車圖案 (輕微透明度 0.1) */
-                url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewport="0 0 100 100" style="font-size:20px;"><text opacity="0.1" y="20">🚲</text></svg>'),
-                /* 2. 原有的斜線紋理 */
-                repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(0, 0, 0, 0.05) 10px, rgba(0, 0, 0, 0.05) 20px);
-            background-repeat: repeat, repeat;
-            background-position: 15px 15px, 0 0; 
+                /* 32 個圖層堆疊 (奇偶行交錯的順序) */
+                var(--bike-svg),var(--bike-svg),var(--bike-svg),var(--bike-svg), /* Row 1 (Odd) */
+                var(--bike-svg),var(--bike-svg),var(--bike-svg),var(--bike-svg), /* Row 2 (Even) */
+                var(--bike-svg),var(--bike-svg),var(--bike-svg),var(--bike-svg), /* Row 3 (Odd) */
+                var(--bike-svg),var(--bike-svg),var(--bike-svg),var(--bike-svg), /* Row 4 (Even) */
+                var(--bike-svg),var(--bike-svg),var(--bike-svg),var(--bike-svg), /* Row 5 (Odd) */
+                var(--bike-svg),var(--bike-svg),var(--bike-svg),var(--bike-svg), /* Row 6 (Even) */
+                var(--bike-svg),var(--bike-svg),var(--bike-svg),var(--bike-svg), /* Row 7 (Odd) */
+                var(--bike-svg),var(--bike-svg),var(--bike-svg),var(--bike-svg); /* Row 8 (Even) */
+            
+            /* 32 個圖層都設定為不重複 */
+            background-repeat: no-repeat,no-repeat,no-repeat,no-repeat,no-repeat,no-repeat,no-repeat,no-repeat,no-repeat,no-repeat,no-repeat,no-repeat,no-repeat,no-repeat,no-repeat,no-repeat,no-repeat,no-repeat,no-repeat,no-repeat,no-repeat,no-repeat,no-repeat,no-repeat,no-repeat,no-repeat,no-repeat,no-repeat,no-repeat,no-repeat,no-repeat,no-repeat;
+            
+            /* 32 個圖層的 X Y 座標 (4 欄 x 8 行，奇偶交錯) */
+            background-position: 
+                /* Row 1 (Odd, Y: 5%) */
+                5% 5%, 30% 5%, 55% 5%, 80% 5%,
+                /* Row 2 (Even, Y: 17%, X 軸移動) */
+                17.5% 17%, 42.5% 17%, 67.5% 17%, 92.5% 17%, 
+                /* Row 3 (Odd, Y: 29%) */
+                5% 29%, 30% 29%, 55% 29%, 80% 29%,
+                /* Row 4 (Even, Y: 41%, X 軸移動) */
+                17.5% 41%, 42.5% 41%, 67.5% 41%, 92.5% 41%,
+                /* Row 5 (Odd, Y: 53%) */
+                5% 53%, 30% 53%, 55% 53%, 80% 53%,
+                /* Row 6 (Even, Y: 65%, X 軸移動) */
+                17.5% 65%, 42.5% 65%, 67.5% 65%, 92.5% 65%,
+                /* Row 7 (Odd, Y: 77%) */
+                5% 77%, 30% 77%, 55% 77%, 80% 77%,
+                /* Row 8 (Even, Y: 89%, X 軸移動) */
+                17.5% 89%, 42.5% 89%, 67.5% 89%, 92.5% 89%;
             
             min-height: 100vh;
             color: var(--bike-gray);
             overflow-x: hidden;
             padding-bottom: 20px;
-            /* [保留]：滑鼠樣式改為腳踏車 */
+            /* 滑鼠樣式改為腳踏車 */
             cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewport="0 0 100 100" style="font-size:30px;"><text y="25">🚲</text></svg>') 15 15, auto;
         }
 
@@ -57,7 +86,7 @@
         /* === 2. 頂部狀態列 (專業化) === */
         /* =========================== */
         .status-bar {
-            /* [保留]：垂直堆疊並置中 */
+            /* 垂直堆疊並置中 */
             display: flex;
             flex-direction: column;
             justify-content: center;
@@ -77,7 +106,7 @@
             padding: 6px 15px;
             border-radius: 4px; 
             font-weight: 700;
-            /* [保留]：標題字體放大 */
+            /* 標題字體放大 */
             font-size: 1.5rem;
             transform: none; 
             border: none;
@@ -86,7 +115,7 @@
         }
 
         .update-pill {
-            /* [保留]：日期/時間字體放大 */
+            /* 日期/時間字體放大 */
             font-size: 1.1rem;
             color: var(--bike-gray);
             background: none; 
@@ -132,7 +161,7 @@
         }
 
         .hero-temp-container {
-            /* [保留]：調整排版為左右分佈 */
+            /* 調整排版為左右分佈 */
             display: flex;
             justify-content: space-between;
             align-items: flex-start;
@@ -147,7 +176,7 @@
         }
 
         .hero-icon {
-            /* [保留]：縮小圖示 */
+            /* 縮小圖示 */
             font-size: 3.5rem; 
             filter: drop-shadow(0 2px 0 rgba(0, 0, 0, 0.05));
             animation: none;
@@ -155,7 +184,7 @@
         }
 
         .hero-temp {
-            /* [保留]：溫度略微縮小 */
+            /* 溫度略微縮小 */
             font-size: 4.5rem;
             font-weight: 900;
             color: var(--bike-blue); 
@@ -185,11 +214,11 @@
 
         .data-details span {
             font-weight: 400;
-            color: #6c478d;
+            color: #6c757d;
         }
 
         .hero-desc {
-            /* [保留]：放大詳細天氣描述字體 */
+            /* 放大詳細天氣描述字體 */
             font-size: 1.3rem; 
             color: var(--bike-blue); 
             margin-bottom: 15px; 
@@ -214,7 +243,7 @@
             flex-direction: column;
             align-items: center;
             background: var(--bike-light); 
-            /* [保留]：增加內部間距 */
+            /* 增加內部間距 */
             padding: 12px;
             border-radius: 6px;
             border: 1px solid var(--bike-border);
@@ -222,13 +251,13 @@
         }
 
         .advice-icon {
-            /* [保留]：放大圖示 */
+            /* 放大圖示 */
             font-size: 2.5rem;
             margin-bottom: 5px;
         }
 
         .advice-text {
-            /* [保留]：放大建議文字 */
+            /* 放大建議文字 */
             font-size: 1.2rem; 
             font-weight: 900;
             color: var(--bike-gray);
@@ -289,7 +318,7 @@
             font-weight: 700;
         }
         
-        /* [保留]：給 Hero Card 時段範圍的樣式 */
+        /* 給 Hero Card 時段範圍的樣式 */
         .period-time-range {
             font-size: 1rem; 
             font-weight: 700; 
@@ -394,7 +423,7 @@
             return { rainIcon, rainText, clothIcon, clothText };
         }
 
-        // [保留]：修改 getTimePeriod 函式，返回時段名稱和時間範圍
+        // 修改 getTimePeriod 函式，返回時段名稱和時間範圍
         function getTimePeriod(startTime) {
             const hour = new Date(startTime).getHours();
             let name, timeRange;
@@ -422,7 +451,7 @@
             return { name, timeRange };
         }
 
-        // [保留]：實時更新現在時間的函式
+        // 實時更新現在時間的函式
         function updateCurrentTime() {
             const now = new Date();
             const timeString = now.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -447,7 +476,7 @@
             const rainAlertClass = rainProb > 30 ? 'alert' : '';
             const tempAlertClass = maxTemp >= 28 || maxTemp <= 20 ? 'alert' : '';
 
-            // [保留]：獲取時段名稱和時間範圍
+            // 獲取時段名稱和時間範圍
             const periodData = getTimePeriod(current.startTime);
             const advice = getAdvice(rainProb, maxTemp);
             const avgTemp = Math.round((maxTemp + parseInt(current.minTemp)) / 2);
@@ -500,11 +529,11 @@
 
                 const fDate = new Date(f.startTime);
                 if (fDate.getDate() !== todayDate) {
-                    // [保留]：更新時段名稱，但保留時間範圍
+                    // 更新時段名稱，但保留時間範圍
                     pData.name = "明日 " + pData.name.replace('時段', ''); 
                 }
 
-                // [保留]：在 mini-card 中加入時間範圍
+                // 在 mini-card 中加入時間範圍
                 scrollContainer.innerHTML += `
                             <div class="mini-card">
                                 <div class="mini-time">${pData.name}</div>
